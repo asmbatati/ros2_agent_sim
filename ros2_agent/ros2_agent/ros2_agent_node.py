@@ -14,7 +14,8 @@ from rosa import ROSA
 
 from .cli.interface import RichCLI
 from .prompts.system_prompts import system_prompts
-from .tools.robot_tools import RobotTools
+from .tools.drone_tools import DroneTools
+from .tools.unitree_tools import UnitreeTools
 from .llm.model import initialize_llm
 
 
@@ -121,8 +122,9 @@ class Ros2AgentNode(Node):
         self.mode_service = self.mode_service  # Store for robot tools to access
         self.setpoint_topic = self.setpoint_topic  # Store for robot tools to access
         
-        robot_tools = RobotTools(self)  # Only pass the node itself
-        tools = robot_tools.create_tools()
+        drone_tools = DroneTools(self)  # Only pass the node itself
+        unitree_tools = UnitreeTools(self)  # Only pass the node itself
+        tools = drone_tools.create_tools() + unitree_tools.create_tools()
             
         # Create prompts
         prompts = system_prompts()
@@ -135,7 +137,10 @@ class Ros2AgentNode(Node):
             prompts=prompts
         )
         
-        self.get_logger().info(f"ROSA Agent initialized with {len(tools)} tools")
+        drone_count = len(drone_tools.create_tools())
+        unitree_count = len(unitree_tools.create_tools())
+        self.get_logger().info(f"ROSA Agent initialized with {len(tools)} tools ({drone_count} drone + {unitree_count} Go2)")
+        
         time.sleep(4)
 
 def main(args=None):

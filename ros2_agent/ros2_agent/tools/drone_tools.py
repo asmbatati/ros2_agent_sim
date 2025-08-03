@@ -16,8 +16,8 @@ from sensor_msgs.msg import Image, BatteryState, NavSatFix
 from cv_bridge import CvBridge
 import cv2
 
-class RobotTools:   
-    """Collection of tools for robot control."""
+class DroneTools:   
+    """Collection of tools for drone control via MAVROS."""
     
     def __init__(self, node):
         self.node = node

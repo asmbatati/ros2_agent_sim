@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Rich command-line interface for the Drone Agent.
-Basic implementation to fix the 'setup_logging_capture' error.
+Rich command-line interface for the Multi-Robot SAR Agent.
+Enhanced implementation for controlling both aerial drones and Unitree Go2 robots.
 """
 
 import sys
@@ -21,6 +21,7 @@ from rich.box import ROUNDED
 import cv2
 import re
 import asyncio
+import math
 
 
 class LogCapture(logging.Handler):
@@ -84,7 +85,7 @@ class StderrCapture:
 
 
 class RichCLI:
-    """Rich command-line interface for the Drone Agent Node."""
+    """Rich command-line interface for the Multi-Robot SAR Agent."""
     
     def __init__(self, node):
         self.node = node
@@ -98,14 +99,33 @@ class RichCLI:
         # Set up logging capture
         self.setup_logging_capture()
         
-        # Example drone commands
+        # Example multi-robot commands
         self.examples = [
+            # Drone commands
             "takeoff 5.0",
             "land",
-            "go to position 10.0 5.0 3.0",
-            "show me what you see",
-            "what's your current position?",
-            "stop camera",
+            "drone go to position 10.0 5.0 3.0",
+            "show drone camera",
+            "point camera down",
+            "what's the drone position?",
+            
+            # Go2 robot commands
+            "go2 move 3 steps forward",
+            "go2 move to position 10.0 5.0",
+            "go2 stop",
+            "where is the go2 robot?",
+            "show go2 camera",
+            
+            # Multi-robot commands
+            "show both cameras",
+            "get status of both robots",
+            "stop all robots",
+            "both robots search the area",
+            
+            # Camera controls
+            "close drone camera",
+            "close go2 camera", 
+            "close all cameras",
         ]
         
         # Command handlers
@@ -154,49 +174,70 @@ class RichCLI:
             
     def show_greeting(self):
         """Display the greeting message."""
-        greeting = Text("\n✈️ DRONE CONTROL AGENT ✈️\n")
+        greeting = Text("\n🚁🐕 MULTI-ROBOT SAR CONTROL AGENT 🐕🚁\n")
         greeting.stylize("bold blue")
         
         commands = ", ".join(sorted(self.command_handlers.keys()))
         greeting.append(f"Available commands: {commands}", style="italic cyan")
+        greeting.append(f"\nControlling: Aerial Drone + Unitree Go2 Robot", style="italic green")
         
         self.console.print(greeting)
         
     def show_help(self):
-        """Display help information."""
+        """Display help information for multi-robot system."""
         try:
-            help_table = Table(title="Drone Commands", box=ROUNDED, border_style="blue")
+            help_table = Table(title="Multi-Robot SAR Commands", box=ROUNDED, border_style="blue")
 
             help_table.add_column("Command", style="cyan")
             help_table.add_column("Description", style="green")
             help_table.add_column("Example", style="yellow italic")
             
-            # Basic commands
+            # System commands
             help_table.add_row("help", "Show this help message", "help")
-            help_table.add_row("status", "Show drone status", "status")
-            help_table.add_row("stop", "Emergency stop the drone", "stop")
+            help_table.add_row("status", "Show status of both robots", "status")
+            help_table.add_row("stop", "Emergency stop all robots", "stop")
             help_table.add_row("examples", "Show example commands", "examples")
             help_table.add_row("logs", "Show recent system logs", "logs")
             help_table.add_row("clear", "Clear the screen", "clear")
             help_table.add_row("exit, quit", "Exit the program", "exit")
             
-            # Drone commands
+            # Drone commands section
             help_table.add_section()
+            help_table.add_row("[bold blue]DRONE COMMANDS[/bold blue]", "", "")
             help_table.add_row("takeoff [height]", "Take off to specified height", "takeoff 5.0")
             help_table.add_row("land", "Land the drone", "land")
-            help_table.add_row("go to position [x] [y] [z]", "Navigate to coordinates", "go to position 10.0 5.0 3.0")
+            help_table.add_row("drone go to position [x] [y] [z]", "Navigate to 3D coordinates", "drone go to position 10.0 5.0 3.0")
+            help_table.add_row("show drone camera", "Display drone camera feed", "show drone camera")
+            help_table.add_row("close drone camera", "Stop drone camera feed", "close drone camera")
+            help_table.add_row("point camera [direction]", "Control gimbal direction", "point camera down")
+            help_table.add_row("drone position", "Show current drone position", "drone position")
             
-            # Camera commands
+            # Go2 robot commands section
             help_table.add_section()
-            help_table.add_row("show camera", "Display drone camera feed", "show camera")
-            help_table.add_row("stop camera", "Stop camera feed", "stop camera")
-            help_table.add_row("what's my position", "Show current position", "what's my position")
+            help_table.add_row("[bold green]GO2 ROBOT COMMANDS[/bold green]", "", "")
+            help_table.add_row("go2 move [X] steps forward", "Move forward by X meters", "go2 move 3 steps forward")
+            help_table.add_row("go2 move to position [x] [y]", "Navigate to 2D coordinates", "go2 move to position 10.0 5.0")
+            help_table.add_row("go2 stop", "Stop the Go2 robot", "go2 stop")
+            help_table.add_row("show go2 camera", "Display Go2 camera feed", "show go2 camera")
+            help_table.add_row("close go2 camera", "Stop Go2 camera feed", "close go2 camera")
+            help_table.add_row("where is go2", "Show current Go2 position", "where is go2")
             
-            # Original note remains the same
-            note = "\nYou can use natural language to control the drone. The commands listed are just examples."
+            # Multi-robot commands section
+            help_table.add_section()
+            help_table.add_row("[bold magenta]MULTI-ROBOT COMMANDS[/bold magenta]", "", "")
+            help_table.add_row("show both cameras", "Display both camera feeds", "show both cameras")
+            help_table.add_row("close all cameras", "Stop all camera feeds", "close all cameras")
+            help_table.add_row("stop all robots", "Emergency stop both robots", "stop all robots")
+            help_table.add_row("status of both robots", "Show status of all robots", "status of both robots")
+            help_table.add_row("both robots search area", "Coordinate search operation", "both robots search the debris field")
+            
+            # Natural language note
+            note = ("\n💬 You can use natural language to control the robots. The commands listed are examples.\n"
+                   "🎯 Specify 'drone' or 'go2' when you want to control a specific robot.\n"
+                   "🤖 Use 'both robots' or 'all robots' for coordinated operations.")
             
             self.console.print(help_table)
-            self.console.print(note)
+            self.console.print(note, style="italic yellow")
         
         except Exception as e:
             self.console.print(f"[red]Error in show_help: {str(e)}[/red]")
@@ -204,10 +245,10 @@ class RichCLI:
             traceback.print_exc()
         
     def show_examples(self):
-        """Show example commands the user can try."""
+        """Show example commands for multi-robot operations."""
         examples_panel = Panel(
             "\n".join([f"• {example}" for example in self.examples]),
-            title="Example Commands",
+            title="Multi-Robot Command Examples",
             border_style="green",
             expand=False
         )
@@ -218,65 +259,141 @@ class RichCLI:
         os.system('cls' if os.name == 'nt' else 'clear')
         
     def emergency_stop(self):
-        """Perform emergency stop of the drone."""
+        """Perform emergency stop of all robots."""
         try:
-            from geometry_msgs.msg import Twist
-            twist = Twist()
-            self.node.cmd_vel_publisher.publish(twist)
-            for _ in range(5):
-                self.node.cmd_vel_publisher.publish(twist)
-                time.sleep(0.01)
+            stop_success = []
+            
+            # Stop drone
+            try:
+                from geometry_msgs.msg import Twist
+                drone_twist = Twist()
+                if hasattr(self.node, 'cmd_vel_publisher'):
+                    self.node.cmd_vel_publisher.publish(drone_twist)
+                    for _ in range(5):
+                        self.node.cmd_vel_publisher.publish(drone_twist)
+                        time.sleep(0.01)
+                    stop_success.append("✅ Drone movement halted")
+                else:
+                    stop_success.append("⚠️ Drone cmd_vel not available")
+            except Exception as e:
+                stop_success.append(f"❌ Drone stop error: {str(e)}")
+            
+            # Stop Go2 robot
+            try:
+                if hasattr(self.node, 'go2_cmd_vel_pub'):
+                    go2_twist = Twist()
+                    for _ in range(5):
+                        self.node.go2_cmd_vel_pub.publish(go2_twist)
+                        time.sleep(0.01)
+                    stop_success.append("✅ Go2 robot movement halted")
+                    
+                    # Cancel navigation
+                    if hasattr(self.node, 'go2_navigation_active'):
+                        self.node.go2_navigation_active = False
+                        stop_success.append("✅ Go2 navigation canceled")
+                else:
+                    stop_success.append("⚠️ Go2 cmd_vel not available")
+            except Exception as e:
+                stop_success.append(f"❌ Go2 stop error: {str(e)}")
                 
+            # Display results
             stop_panel = Panel(
-                "⚠️ Drone movement halted. All motors stopped.",
-                title="EMERGENCY STOP",
+                "\n".join(stop_success) + "\n\n🚨 ALL ROBOT MOVEMENT COMMANDS HALTED",
+                title="EMERGENCY STOP - ALL ROBOTS",
                 border_style="red",
                 expand=False
             )
             self.console.print(stop_panel)
             return True
+            
         except Exception as e:
             self.console.print(f"[red]Error during emergency stop: {str(e)}[/red]")
             return False
             
     def exit_program(self):
         """Exit the program gracefully."""
-        self.console.print("[yellow]Shutting down...[/yellow]")
+        self.console.print("[yellow]Shutting down multi-robot system...[/yellow]")
         
+        # Emergency stop all robots
         self.emergency_stop()
         
-        with self.node.camera_lock:
-            if self.node.camera_active:
-                self.node.camera_active = False
-                
-        if self.node.camera_thread is not None and self.node.camera_thread.is_alive():
-            self.node.camera_thread.join(timeout=1.0)
-            
+        # Close all camera feeds
         try:
+            # Close drone camera
+            with self.node.camera_lock if hasattr(self.node, 'camera_lock') else threading.Lock():
+                if hasattr(self.node, 'camera_active') and self.node.camera_active:
+                    self.node.camera_active = False
+                    
+            if hasattr(self.node, 'camera_thread') and self.node.camera_thread is not None and self.node.camera_thread.is_alive():
+                self.node.camera_thread.join(timeout=1.0)
+                
+            # Close Go2 camera
+            if hasattr(self.node, 'go2_camera_active') and self.node.go2_camera_active:
+                self.node.go2_camera_active = False
+                
+            if hasattr(self.node, 'go2_camera_thread') and self.node.go2_camera_thread is not None and self.node.go2_camera_thread.is_alive():
+                self.node.go2_camera_thread.join(timeout=1.0)
+                
             cv2.destroyAllWindows()
         except:
             pass
             
         self.node.running = False
-        self.console.print("[green]Goodbye![/green]")
+        self.console.print("[green]Multi-robot system shutdown complete. Goodbye![/green]")
         sys.exit(0)
         
     def show_status(self):
-        """Show current drone status."""
+        """Show current status of both robots."""
         try:
-            # Get drone position
-            pos_x = self.node.current_pose.pose.position.x
-            pos_y = self.node.current_pose.pose.position.y
-            pos_z = self.node.current_pose.pose.position.z
-            
-            status_table = Table(title="Drone Status", box=ROUNDED, border_style="blue")
-            status_table.add_column("Parameter", style="cyan")
+            status_table = Table(title="Multi-Robot System Status", box=ROUNDED, border_style="blue")
+            status_table.add_column("Robot", style="cyan")
+            status_table.add_column("Parameter", style="yellow")
             status_table.add_column("Value", style="green")
             
-            # Position info
-            status_table.add_row("Position X", f"{pos_x:.2f} m")
-            status_table.add_row("Position Y", f"{pos_y:.2f} m")
-            status_table.add_row("Position Z (Altitude)", f"{pos_z:.2f} m")
+            # Drone status
+            try:
+                drone_pos_x = self.node.current_pose.pose.position.x
+                drone_pos_y = self.node.current_pose.pose.position.y
+                drone_pos_z = self.node.current_pose.pose.position.z
+                
+                status_table.add_row("🚁 Drone", "Position X", f"{drone_pos_x:.2f} m")
+                status_table.add_row("", "Position Y", f"{drone_pos_y:.2f} m")
+                status_table.add_row("", "Altitude Z", f"{drone_pos_z:.2f} m")
+                
+                # Camera status
+                drone_cam_status = "Active" if getattr(self.node, 'camera_active', False) else "Inactive"
+                status_table.add_row("", "Camera", drone_cam_status)
+                
+            except Exception as e:
+                status_table.add_row("🚁 Drone", "Status", f"Error: {str(e)}")
+            
+            # Add separator
+            status_table.add_row("", "", "")
+            
+            # Go2 status
+            try:
+                if hasattr(self.node, 'current_go2_pose'):
+                    go2_pos_x = self.node.current_go2_pose.pose.pose.position.x
+                    go2_pos_y = self.node.current_go2_pose.pose.pose.position.y
+                    go2_yaw = self.node.get_go2_yaw() if hasattr(self.node, 'get_go2_yaw') else 0.0
+                    go2_yaw_deg = math.degrees(go2_yaw) if hasattr(math, 'degrees') else go2_yaw * 57.3
+                    
+                    status_table.add_row("🐕 Go2", "Position X", f"{go2_pos_x:.2f} m")
+                    status_table.add_row("", "Position Y", f"{go2_pos_y:.2f} m")
+                    status_table.add_row("", "Heading", f"{go2_yaw_deg:.1f}°")
+                    
+                    # Navigation status
+                    nav_status = "Active" if getattr(self.node, 'go2_navigation_active', False) else "Inactive"
+                    status_table.add_row("", "Navigation", nav_status)
+                    
+                    # Camera status
+                    go2_cam_status = "Active" if getattr(self.node, 'go2_camera_active', False) else "Inactive"
+                    status_table.add_row("", "Camera", go2_cam_status)
+                else:
+                    status_table.add_row("🐕 Go2", "Status", "No odometry data")
+                    
+            except Exception as e:
+                status_table.add_row("🐕 Go2", "Status", f"Error: {str(e)}")
             
             timestamp = datetime.now().strftime("%H:%M:%S")
             footer = Text(f"Status as of {timestamp}")
@@ -287,7 +404,7 @@ class RichCLI:
             return True
             
         except Exception as e:
-            self.console.print(f"[red]Error retrieving status: {str(e)}[/red]")
+            self.console.print(f"[red]Error retrieving multi-robot status: {str(e)}[/red]")
             return False
             
     def show_logs(self):
@@ -307,7 +424,7 @@ class RichCLI:
         
     def handle_interrupt(self, sig, frame):
         """Handle SIGINT (Ctrl+C) gracefully."""
-        self.console.print("\n[yellow]Interrupted. Type 'exit' to quit or 'stop' for emergency stop.[/yellow]")
+        self.console.print("\n[yellow]Interrupted. Type 'exit' to quit or 'stop' for emergency stop of all robots.[/yellow]")
         
     def extract_thinking(self, response):
         """Extract thinking process from <think> tags and format it nicely."""
@@ -324,7 +441,7 @@ class RichCLI:
         return thinking, response_text
         
     async def process_command(self, command):
-        """Process a user command."""
+        """Process a user command with improved timeout handling."""
         if not command or command.isspace():
             return
             
@@ -333,7 +450,6 @@ class RichCLI:
         
         command_lower = command.lower().strip()
         if command_lower == "help":
-            # Direct call instead of using handlers
             self.show_help()
             return
         elif command_lower in self.command_handlers:
@@ -356,14 +472,24 @@ class RichCLI:
         agent_thread.start()
         
         with self.console.status("[yellow]Thinking...[/yellow]", spinner="dots") as status:
-            timeout = 60
+            timeout = 120  # Increased timeout for robot operations
             start_time = time.time()
             
             while agent_thread.is_alive() and time.time() - start_time < timeout:
+                elapsed = time.time() - start_time
+                
+                # Update status message based on elapsed time
+                if elapsed > 60:
+                    status.update(f"[yellow]Robot operation in progress... {elapsed:.0f}s[/yellow]")
+                elif elapsed > 30:
+                    status.update(f"[yellow]Processing robot command... {elapsed:.0f}s[/yellow]")
+                elif elapsed > 10:
+                    status.update(f"[yellow]Executing tools... {elapsed:.0f}s[/yellow]")
+                    
                 await asyncio.sleep(0.1)
                 
         if agent_thread.is_alive():
-            self.console.print("[red]Response taking too long! Consider using emergency stop if robot is moving.[/red]")
+            self.console.print("[red]Response taking too long! Consider using 'stop' for emergency halt of all robots.[/red]")
             return
         elif error[0]:
             self.console.print(Panel(f"Error: {error[0]}", title="Error", border_style="red"))
@@ -375,13 +501,13 @@ class RichCLI:
         if thinking:
             self.console.print(Panel(
                 Markdown(thinking), 
-                title="Thinking Process",
+                title="AI Reasoning Process",
                 border_style="yellow"
             ))
             
         self.console.print(Panel(
             Markdown(clean_response), 
-            title="Drone Response",
+            title="Multi-Robot System Response",
             border_style="green"
         ))
         
@@ -392,12 +518,12 @@ class RichCLI:
         
         while True:
             try:
-                self.console.print("[bold green]➤ Drone >[/bold green] ", end="")
+                self.console.print("[bold green]➤ SAR Command >[/bold green] ", end="")
                 command = input()
                 await self.process_command(command)
                 
             except KeyboardInterrupt:
-                self.console.print("\n[yellow]Command interrupted. Type 'stop' for emergency stop.[/yellow]")
+                self.console.print("\n[yellow]Command interrupted. Type 'stop' for emergency stop of all robots.[/yellow]")
                 continue
             except EOFError:
                 self.exit_program()
