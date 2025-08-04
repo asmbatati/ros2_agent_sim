@@ -12,8 +12,10 @@ from mavros_msgs.msg import VfrHud, State # type: ignore
 from geometry_msgs.msg import PoseStamped
 import math
 from std_msgs.msg import Float64
-from sensor_msgs.msg import Image, BatteryState, NavSatFix
+from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
+from ..prompts.system_prompts import SARAnalysisPrompts
+from ..llm.specialist_models import call_vision_specialist
 import cv2
 
 class DroneTools:   
@@ -854,6 +856,51 @@ class DroneTools:
                 node.get_logger().info("Started setpoint publisher thread")
             
             return f"✅ Moving to position ({x:.2f}, {y:.2f}, {z:.2f})\n• Target set successfully\n• Publishing setpoints: ✓"
+
+################################################################################################################################################################################################################################
+
+        @tool
+        def analyze_drone_camera() -> str:
+            """
+            Analyze current drone camera feed using vision AI specialist.
+            Captures current frame and sends to qwen2.5vl:7b for SAR analysis.
+            
+            Use this tool when user wants to:
+            - Analyze what the drone camera sees
+            - Look for humans in the camera feed
+            - Assess survivor conditions
+            - Get detailed scene analysis for SAR operations
+            
+            Returns:
+                str: Detailed analysis of humans and their conditions in the scene
+            """
+            # 1. Check if camera feed is active
+            if not hasattr(node, 'camera_active') or not node.camera_active:
+                return "❌ Camera feed not active. Please start camera feed first using 'show camera' or 'camera_feed start'."
+            
+            # 2. Check if current frame is available
+            if not hasattr(node, 'latest_frame') or node.latest_frame is None:
+                return "❌ No camera frame available. Please ensure camera feed is working properly."
+            
+            # 3. Get SAR analysis prompt from prompts module
+            sar_prompt = SARAnalysisPrompts.human_condition_analysis()
+
+            node.get_logger().info("Starting drone camera analysis with vision specialist...")
+            
+            # 4. Call vision specialist
+            try:
+                analysis_result = call_vision_specialist(
+                    cv_image=node.latest_frame,
+                    prompt=sar_prompt,
+                    model_name="qwen2.5vl:7b",
+                    node=node
+                )
+                
+                return f"🔍 DRONE CAMERA ANALYSIS:\n\n{analysis_result}"
+                
+            except Exception as e:
+                node.get_logger().error(f"Vision analysis failed: {str(e)}")
+                return f"❌ Vision analysis failed: {str(e)}"
                        
         # Return the tools
         return [
@@ -863,5 +910,6 @@ class DroneTools:
             control_gimbal,
             camera_feed,
             # drone_status,
-            go_to_position
+            go_to_position,
+            analyze_drone_camera
         ]

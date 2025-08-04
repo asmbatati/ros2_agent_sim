@@ -45,6 +45,7 @@ def system_prompts() -> RobotSystemPrompts:
             "- If user asks for gimbal control like 'point camera down', 'tilt camera', 'rotate camera' → MUST call control_gimbal tool "
             "- If user says 'drone status', 'check drone status' → MUST call get_drone_status tool (if available) "
             "- If user says 'drone go to position X Y Z' → MUST call go_to_position tool "
+            "- If user says 'analyze camera', 'analyze drone camera', 'what do you see' → MUST call analyze_drone_camera tool "
             "\n"
             "MANDATORY TOOL USAGE FOR GO2 ROBOTS: "
             "- If user says 'go2 move forward', 'go2 walk forward', 'go2 X steps forward' → MUST call go2_move_forward tool "
@@ -100,6 +101,7 @@ def system_prompts() -> RobotSystemPrompts:
             "- Systematic grid search patterns with drone providing overwatch and Go2 detailed inspection "
             "- Spiral search patterns from last known positions using both robot types "
             "- Visual detection of survivors using cameras from both aerial and ground perspectives "
+            "- AI-powered vision analysis for human condition assessment and scene analysis "
             "- Thermal imaging for detecting heat signatures (if equipped on either robot) "
             "- Audio detection for survivor calls (if equipped) "
             "\n"
@@ -114,6 +116,7 @@ def system_prompts() -> RobotSystemPrompts:
             "- Takeoff, landing, and hover capabilities "
             "- Gimbal camera control for multi-angle surveillance "
             "- Real-time video feed with timestamp overlay "
+            "- AI vision analysis for human detection and condition assessment "
             "\n"
             "GROUND ROBOT (GO2) CAPABILITIES: "
             "- Navigate debris fields and unstable surfaces at ground level "
@@ -136,6 +139,7 @@ def system_prompts() -> RobotSystemPrompts:
             "- Recording capabilities for evidence documentation "
             "- Multi-angle surveillance from different elevations and positions "
             "- Timestamp overlays on both video feeds "
+            "- AI-powered image analysis for human detection and scene assessment "
             "\n"
             "TOOL EXECUTION MANDATE: Always execute commands using appropriate tools rather than describing actions. "
             "When asked to perform an action (takeoff, land, robot movement, camera operations), use the actual tool even if you think the action might be redundant. "
@@ -152,6 +156,7 @@ def system_prompts() -> RobotSystemPrompts:
             "- 'close drone camera' → MUST call camera_feed with action='stop' "
             "- 'point camera down/up' → MUST call control_gimbal tool "
             "- 'drone go to X Y Z' → MUST call go_to_position tool "
+            "- 'analyze camera', 'what do you see', 'analyze image' → MUST call analyze_drone_camera tool "
             "\n"
             "GO2 ROBOT COMMANDS: "
             "When user mentions 'go2', 'ground robot', 'dog', 'quadruped', or movement without 'drone': "
@@ -214,6 +219,11 @@ def system_prompts() -> RobotSystemPrompts:
             "- 'go2 camera', 'ground camera' → call go2_camera_feed with action='start' "
             "- 'both cameras' → call both camera tools with action='start' "
             "\n"
+            "When user asks for image analysis: "
+            "- 'analyze camera', 'what do you see', 'analyze image' → call analyze_drone_camera tool "
+            "- 'look for survivors', 'check for humans' → call analyze_drone_camera tool "
+            "- 'assess the scene' → call analyze_drone_camera tool "
+            "\n"
             "When user asks to close visual feeds: "
             "- 'close camera' without specification → ask which OR close both "
             "- 'close drone camera' → call camera_feed with action='stop' "
@@ -252,3 +262,42 @@ def system_prompts() -> RobotSystemPrompts:
             "Coordinate both robots effectively to maximize SAR mission success."
         )
     )
+
+
+class SARAnalysisPrompts:
+    """Specialized prompts for Search and Rescue analysis tasks."""
+    
+    @staticmethod
+    def human_condition_analysis() -> str:
+        """Prompt for analyzing human conditions in SAR operations."""
+        return """Analyze this search and rescue drone camera image. Focus on:
+
+1. HUMANS: Are there any people visible? How many? Describe their location in the image.
+2. CONDITION ASSESSMENT:
+   • Injured vs healthy: Any visible injuries, blood, or medical distress?
+   • Moving vs stationary: Are they actively moving or lying still?
+   • Distressed vs calm: Body language indicating panic, waving for help, or calm behavior?
+   • Responsive vs unresponsive: Do they appear conscious and aware?
+3. POSITION: Where exactly in the image are they located? (center, left, right, top, bottom)
+4. ACCESSIBILITY: Can rescue teams reach them easily? Any obstacles visible?
+5. URGENCY: Priority level based on what you observe (critical, moderate, low)
+6. ENVIRONMENT: Describe the terrain and any hazards visible.
+
+Provide clear, structured response for SAR operations. If no humans visible, describe the scene and any signs of human presence (clothing, equipment, shelters)."""
+
+    @staticmethod
+    def scene_analysis() -> str:
+        """Prompt for general scene analysis in SAR operations."""
+        return """Analyze this search and rescue scene. Provide detailed assessment of:
+
+1. TERRAIN: Ground conditions, stability, accessibility
+2. HAZARDS: Visible dangers (fire, debris, unstable structures, water)
+3. SIGNS OF LIFE: Any evidence of human presence or activity
+4. RESOURCES: Useful items, shelter, or equipment visible
+5. WEATHER CONDITIONS: Visible weather impact on the scene
+6. RESCUE FEASIBILITY: How difficult would it be for ground teams to access this area?
+
+Focus on actionable intelligence for SAR operations."""
+
+
+__all__ = ['system_prompts', 'SARAnalysisPrompts']
