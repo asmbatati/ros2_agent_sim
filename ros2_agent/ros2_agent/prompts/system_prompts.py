@@ -286,18 +286,64 @@ class SARAnalysisPrompts:
 Provide clear, structured response for SAR operations. If no humans visible, describe the scene and any signs of human presence (clothing, equipment, shelters)."""
 
     @staticmethod
-    def scene_analysis() -> str:
-        """Prompt for general scene analysis in SAR operations."""
-        return """Analyze this search and rescue scene. Provide detailed assessment of:
+    def human_condition_analysis() -> str:
+        """Prompt for comprehensive image analysis with full scene description."""
+        return """Analyze this drone camera image and provide a comprehensive, detailed description of everything visible. Include:
 
-1. TERRAIN: Ground conditions, stability, accessibility
-2. HAZARDS: Visible dangers (fire, debris, unstable structures, water)
-3. SIGNS OF LIFE: Any evidence of human presence or activity
-4. RESOURCES: Useful items, shelter, or equipment visible
-5. WEATHER CONDITIONS: Visible weather impact on the scene
-6. RESCUE FEASIBILITY: How difficult would it be for ground teams to access this area?
+    1. OVERALL SCENE DESCRIPTION:
+    • General environment type (urban, rural, wilderness, disaster zone, etc.)
+    • Weather conditions and lighting
+    • Time of day indicators (shadows, lighting quality)
+    • Overall scene composition and perspective
 
-Focus on actionable intelligence for SAR operations."""
+    2. TERRAIN AND LANDSCAPE:
+    • Ground surface types (concrete, dirt, grass, debris, water, etc.)
+    • Topography (flat, hilly, mountainous, valleys)
+    • Vegetation (trees, bushes, grass, crops)
+    • Natural features (rivers, rocks, cliffs, etc.)
+
+    3. STRUCTURES AND BUILDINGS:
+    • Buildings (houses, commercial, industrial, damaged/intact)
+    • Infrastructure (roads, bridges, power lines, vehicles)
+    • Artificial objects and equipment
+    • Signs, markings, or text visible
+
+    4. HUMANS AND LIVING BEINGS:
+    • People: How many, where located, what they're doing
+    • Clothing and appearance details
+    • Body language and apparent condition (injured/healthy, moving/stationary, distressed/calm)
+    • Animals if present
+
+    5. VEHICLES AND EQUIPMENT:
+    • Cars, trucks, machinery, aircraft
+    • Emergency vehicles (ambulances, fire trucks, police)
+    • Construction or rescue equipment
+    • Condition and positioning of vehicles
+
+    6. COLORS AND VISUAL DETAILS:
+    • Dominant colors in the scene
+    • Notable color contrasts or patterns
+    • Textures and materials visible
+    • Visual quality (clear, blurry, distant, close-up)
+
+    7. MOVEMENT AND ACTIVITY:
+    • Any motion detected (people moving, vehicles, smoke, water flow)
+    • Evidence of recent activity
+    • Static vs dynamic elements
+
+    8. HAZARDS AND SAFETY CONCERNS:
+    • Fire, smoke, or dangerous substances
+    • Structural damage or unstable elements
+    • Environmental dangers (flooding, debris)
+    • Accessibility issues for rescue operations
+
+    9. SEARCH AND RESCUE RELEVANCE:
+    • Potential survivor locations or signs of life
+    • Safe landing/approach zones for rescue teams
+    • Priority areas requiring immediate attention
+    • Areas already searched or cleared
+
+    Provide rich, detailed descriptions as if describing the scene to someone who cannot see it. Be thorough and observational, noting both obvious and subtle details."""
 
 
 __all__ = ['system_prompts', 'SARAnalysisPrompts']
