@@ -472,7 +472,7 @@ class RichCLI:
         agent_thread.start()
         
         with self.console.status("[yellow]Thinking...[/yellow]", spinner="dots") as status:
-            timeout = 120  # Increased timeout for robot operations
+            timeout = 350  # Increased timeout for robot operations
             start_time = time.time()
             
             while agent_thread.is_alive() and time.time() - start_time < timeout:
