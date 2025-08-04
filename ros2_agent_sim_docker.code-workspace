@@ -1,0 +1,13 @@
+{
+    "folders": [
+        {
+            "path": "../unitree_go2_ros2"
+        },
+        {
+            "path": "."
+        },
+        {
+            "path": "../../../../rosa/ros2_agent_sim_docker"
+        }
+    ]
+}
