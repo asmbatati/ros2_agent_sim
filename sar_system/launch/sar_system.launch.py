@@ -18,9 +18,10 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     """
-    SAR (Search and Rescue) System Launch File - Step 2 Fixed
+    SAR (Search and Rescue) System Launch File - Complete
     Combines Unitree Go2 and Drone simulation in single Gazebo world
-    Uses minimal namespacing following original working patterns
+    Go2: Immediate spawn at (5,0,0) with CHAMP quadruped control
+    Drone: 5-second delayed spawn at (0,0,0.3) with PX4 SITL + MAVROS
     """
     
     # ============================================================================
@@ -257,6 +258,178 @@ def generate_launch_description():
     )
 
     # ============================================================================
+    # STEP 3: DRONE SPAWN (DELAYED - 5 SECONDS)
+    # ============================================================================
+    
+    # Drone integration using original launch pattern with TimerAction delay
+    # Following original drone_sim/launch/drone.launch.py structure
+    
+    drone_delayed_spawn = TimerAction(
+        period=5.0,  # 5-second delay as requested
+        actions=[
+            
+            # 3.1: PX4 SITL Process (connects to existing Gazebo world)
+            ExecuteProcess(
+                cmd=[
+                    'bash', '-c',
+                    'cd /home/user/shared_volume/PX4-Autopilot && ' +
+                    'PX4_SYS_AUTOSTART=4021 ' +
+                    'PX4_GZ_MODEL=x500_lidar_camera ' +
+                    'PX4_UXRCE_DDS_NS=drone ' +
+                    'PX4_GZ_MODEL_POSE="0,0,0.3" ' +
+                    'PX4_GZ_WORLD=default ' +
+                    'PX4_GZ_STANDALONE=1 ' +                   # CRITICAL: Connect to existing Gazebo
+                    'PX4_SIM_SPEED_FACTOR=1.0 ' +             # Force real-time simulation
+                    './build/px4_sitl_default/bin/px4 -i 1'
+                ],
+                output='screen',
+            ),
+            
+            # 3.2: micro-XRCE-DDS Agent (port 8888)
+            ExecuteProcess(
+                cmd=[
+                    'MicroXRCEAgent', 'udp4', '-p', '8888'
+                ],
+                output='screen',
+            ),
+            
+            # 3.3: MAVROS with Drone Configuration  
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([
+                    PathJoinSubstitution([
+                        FindPackageShare('drone_sim'),
+                        'launch',
+                        'mavros.launch.py'
+                    ])
+                ]),
+                launch_arguments={
+                    'mavros_namespace': 'drone/mavros',
+                    'tgt_system': '2',  # Different system ID from default
+                    'fcu_url': 'udp://:14541@127.0.0.1:14557',  # Different ports
+                    'pluginlists_yaml': os.path.join(
+                        get_package_share_directory('drone_sim'), 
+                        'mavros', 'drone_px4_pluginlists.yaml'
+                    ),
+                    'config_yaml': os.path.join(
+                        get_package_share_directory('drone_sim'),
+                        'mavros', 'drone_px4_config.yaml'
+                    ),
+                    'base_link_frame': 'drone/base_link',
+                    'odom_frame': 'drone/odom',
+                    'map_frame': 'map',
+                    'use_sim_time': 'True'
+                }.items()
+            ),
+        ]
+    )
+    
+    # Drone Static TF Transforms (following original pattern)
+    # These handle coordinate frame conversions (ENU ↔ NED, map ↔ odom)
+    drone_tf_transforms = TimerAction(
+        period=65.0,  # 5 seconds after drone spawn
+        actions=[
+            # Static TF map/world -> local_pose_ENU
+            Node(
+                package='tf2_ros',
+                name='map2px4_drone_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0.0', '0.0', '0.3', '0.0', '0', '0', 'map', 'drone/odom'],
+            ),
+            
+            # Static TF base_link -> Gimbal_Camera
+            Node(
+                package='tf2_ros',
+                name='drone_base2gimbal_camera_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0.1', '0', '0.13', '1.5708', '0', '1.5708', 
+                          'drone/base_link', 'drone/gimbal_camera'],
+            ),
+            
+            # Static TF base_link -> Lidar
+            Node(
+                package='tf2_ros',
+                name='drone_base2lidar_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0.295', '0', '0', '0', 
+                          'drone/base_link', 'x500_lidar_camera_1/lidar_link/gpu_lidar'],
+            ),
+            
+            # Connect drone/base_link to base_link (for multi-robot)
+            Node(
+                package='tf2_ros',
+                name='drone_base_to_base_link_tf_node', 
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0', '0', '0', '0', 'drone/base_link', 'base_link'],
+            ),
+            
+            # Base link to base_link_frd (ENU to NED conversion)
+            Node(
+                package='tf2_ros',
+                name='base_link_to_frd_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'base_link', 'base_link_frd'],
+            ),
+        ]
+    )
+    
+    # Drone ROS-Gazebo Bridge for Sensors (following original pattern)
+    drone_sensor_bridge = TimerAction(
+        period=62.0,  # 2 seconds after drone spawn  
+        actions=[
+            Node(
+                package='ros_gz_bridge',
+                name='drone_sensor_bridge',
+                executable='parameter_bridge',
+                arguments=[
+                    # Camera data
+                    '/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/image@sensor_msgs/msg/Image[gz.msgs.Image',
+                    '/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
+                    
+                    # Lidar data  
+                    '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+                    '/scan/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
+                    
+                    # IMU and other sensors
+                    '/imu_gimbal@sensor_msgs/msg/Imu[gz.msgs.IMU',
+                    '/world/default/model/x500_lidar_camera_1/link/base_link/sensor/imu_sensor/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+                    '/world/default/model/x500_lidar_camera_1/link/base_link/sensor/air_pressure_sensor/air_pressure@sensor_msgs/msg/FluidPressure[gz.msgs.FluidPressure',
+                    '/navsat@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
+                    
+                    # Gimbal control
+                    '/gimbal/cmd_yaw@std_msgs/msg/Float64]gz.msgs.Double',
+                    '/gimbal/cmd_roll@std_msgs/msg/Float64]gz.msgs.Double',
+                    '/gimbal/cmd_pitch@std_msgs/msg/Float64]gz.msgs.Double',
+                ],
+                # Remap topics to drone namespace (following original pattern)
+                remappings=[
+                    ('/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/image', '/drone/gimbal_camera'),
+                    ('/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/camera_info', '/drone/gimbal_camera_info'),
+                    ('/gimbal/cmd_yaw', '/drone/gimbal/cmd_yaw'),
+                    ('/gimbal/cmd_roll', '/drone/gimbal/cmd_roll'),
+                    ('/gimbal/cmd_pitch', '/drone/gimbal/cmd_pitch'),
+                    ('/imu_gimbal', '/drone/imu_gimbal'),
+                    ('/scan', '/drone/scan'),
+                    ('/scan/points', '/drone/scan/points'),
+                    ('/world/default/model/x500_lidar_camera_1/link/base_link/sensor/imu_sensor/imu', '/drone/imu'),
+                    ('/world/default/model/x500_lidar_camera_1/link/base_link/sensor/air_pressure_sensor/air_pressure', '/drone/air_pressure'),
+                    ('/navsat', '/drone/gps'),
+                ],
+            )
+        ]
+    )
+    
+    # Drone Status Check
+    drone_status_check = TimerAction(
+        period=75.0,  # Check status after all drone components should be loaded
+        actions=[
+            ExecuteProcess(
+                cmd=["bash", "-c", "echo 'Drone Status Check:' && ros2 topic list | grep drone && echo 'MAVROS Topics:' && ros2 topic list | grep mavros"],
+                output='screen',
+            )
+        ]
+    )
+
+    # ============================================================================
     # RETURN LAUNCH DESCRIPTION
     # ============================================================================
     
@@ -285,5 +458,9 @@ def generate_launch_description():
         go2_base_to_footprint_ekf,
         go2_footprint_to_odom_ekf,
         
-        # TODO: Step 3 - Drone (60 second delay) will be added next
+        # Step 3: Drone (5-second delayed spawn) - following original pattern
+        drone_delayed_spawn,
+        drone_tf_transforms,
+        drone_sensor_bridge,
+        drone_status_check,
     ])
