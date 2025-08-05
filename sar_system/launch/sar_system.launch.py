@@ -20,7 +20,7 @@ def generate_launch_description():
     """
     SAR (Search and Rescue) System Launch File - Complete
     Combines Unitree Go2 and Drone simulation in single Gazebo world
-    Go2: Immediate spawn at (5,0,0) with CHAMP quadruped control
+    Go2: Immediate spawn at (0,-1,1) with CHAMP quadruped control
     Drone: 5-second delayed spawn at (0,0,0.3) with PX4 SITL + MAVROS
     """
     
@@ -135,9 +135,9 @@ def generate_launch_description():
         arguments=[
             '-name', 'go2',
             '-topic', 'robot_description',
-            '-x', '5.0',
-            '-y', '0.0', 
-            '-z', '0.0'
+            '-x', '0.0',
+            '-y', '-1.0', 
+            '-z', '1.0'
         ],
     )
     
