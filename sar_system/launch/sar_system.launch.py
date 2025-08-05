@@ -1,236 +1,289 @@
 #!/usr/bin/env python3
 
 import os
-import launch_ros
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction, SetEnvironmentVariable
+from launch.actions import (
+    DeclareLaunchArgument,
+    ExecuteProcess,
+    IncludeLaunchDescription,
+    TimerAction,
+    SetEnvironmentVariable
+)
+from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import PathJoinSubstitution, Command
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    ld = LaunchDescription()
-
-    # ====================
-    # SAR SYSTEM PARAMETERS
-    # ====================
+    """
+    SAR (Search and Rescue) System Launch File - Step 2 Fixed
+    Combines Unitree Go2 and Drone simulation in single Gazebo world
+    Uses minimal namespacing following original working patterns
+    """
     
-    # Drone spawn position
-    drone_x = '0.0'
-    drone_y = '0.0' 
-    drone_z = '0.1'
-
-    # Go2 Robot spawn position (away from drone)
-    go2_x = '5.0'
-    go2_y = '0.0' 
-    go2_z = '0.375'
-
-    # PX4 Default world path
-    px4_world_path = '/home/user/shared_volume/PX4-Autopilot/Tools/simulation/gz/worlds/default.sdf'
-
-    # Suppress warnings
-    suppress_warnings = SetEnvironmentVariable(
-        name='RCUTILS_LOGGING_SEVERITY_THRESHOLD',
-        value='ERROR'
+    # ============================================================================
+    # LAUNCH ARGUMENTS
+    # ============================================================================
+    
+    declare_use_sim_time = DeclareLaunchArgument(
+        "use_sim_time",
+        default_value="true",
+        description="Use simulation time"
+    )
+    
+    declare_gui = DeclareLaunchArgument(
+        "gui", 
+        default_value="true", 
+        description="Launch Gazebo with GUI"
     )
 
-    # ====================
-    # 1. LAUNCH GAZEBO SIMULATION WITH PX4 WORLD
-    # ====================
+    # ============================================================================
+    # ENVIRONMENT SETUP
+    # ============================================================================
     
-    print("🌍 Starting Gazebo Harmonic (GZ v8) with PX4 default world...")
+    # PX4 directory path
+    px4_dir = '/home/user/shared_volume/PX4-Autopilot'
     
-    pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
+    # Set Gazebo resource paths for PX4 models
+    set_gazebo_resource_path = SetEnvironmentVariable(
+        'IGN_GAZEBO_RESOURCE_PATH',
+        value=f'{px4_dir}/Tools/simulation/gz/models:{px4_dir}/Tools/simulation/gz/worlds'
+    )
     
+    # World file path  
+    world_file = f'{px4_dir}/Tools/simulation/gz/worlds/default.sdf'
+
+    # ============================================================================
+    # STEP 1: SINGLE GAZEBO WORLD LAUNCH
+    # ============================================================================
+    
+    # Launch Gazebo with PX4 world
     gz_sim = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')
-        ),
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('ros_gz_sim'),
+                'launch',
+                'gz_sim.launch.py'
+            ])
+        ]),
         launch_arguments={
-            'gz_args': [px4_world_path, ' -r']
-        }.items(),
+            'gz_args': f'{world_file} -r',
+            'on_exit_shutdown': 'true'
+        }.items()
     )
 
-    # ====================
-    # 2. SPAWN DRONE MODEL IN GAZEBO
-    # ====================
+    # ============================================================================
+    # STEP 1.5: ROS-GAZEBO BRIDGE (CRITICAL FOR CLOCK SYNC)
+    # ============================================================================
     
-    print("🚁 Spawning drone model in Gazebo...")
-    
-    spawn_drone = TimerAction(
-        period=5.0,  # Wait for Gazebo to start
-        actions=[
-            Node(
-                package='ros_gz_sim',
-                executable='create',
-                output='screen',
-                arguments=[
-                    '-world', 'default',
-                    '-file', '/home/user/shared_volume/PX4-Autopilot/Tools/simulation/gz/models/x500_lidar_camera/model.sdf',
-                    '-name', 'x500_lidar_camera_1',
-                    '-x', drone_x,
-                    '-y', drone_y,
-                    '-z', drone_z,
-                    '-Y', '0.0'
-                ],
-            )
-        ]
+    # Bridge ROS 2 topics to Gazebo Sim (essential for proper simulation)
+    gazebo_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='gazebo_bridge',
+        output='screen',
+        parameters=[{'use_sim_time': LaunchConfiguration("use_sim_time")}],
+        arguments=[
+            # Clock synchronization (CRITICAL)
+            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+            # Joint states from Gazebo to ROS
+            '/joint_states@sensor_msgs/msg/JointState@gz.msgs.Model',
+            # TF from Gazebo to ROS  
+            '/tf@tf2_msgs/msg/TFMessage@gz.msgs.Pose_V',
+        ],
     )
 
-    # ====================
-    # 3. SPAWN UNITREE GO2 MODEL IN GAZEBO
-    # ====================
+    # ============================================================================
+    # STEP 2: GO2 ROBOT SPAWN (IMMEDIATE - 0 SECONDS)
+    # ============================================================================
     
-    print("🐕 Spawning Unitree Go2 model in Gazebo...")
+    # Go2 package paths and configs (using original patterns)
+    unitree_go2_sim = get_package_share_directory("unitree_go2_sim")
+    unitree_go2_description = get_package_share_directory("unitree_go2_description")
     
-    # Get Unitree description paths
-    unitree_go2_description = launch_ros.substitutions.FindPackageShare(
-        package="unitree_go2_description").find("unitree_go2_description")
-    default_model_path = os.path.join(unitree_go2_description, "urdf/unitree_go2_robot.xacro")
+    # Go2 configuration files (original files, no modification needed)
+    go2_joints_config = os.path.join(unitree_go2_sim, "config/joints/joints.yaml")
+    go2_ros_control_config = os.path.join(unitree_go2_sim, "config/ros_control/ros_control.yaml")
+    go2_gait_config = os.path.join(unitree_go2_sim, "config/gait/gait.yaml")
+    go2_links_config = os.path.join(unitree_go2_sim, "config/links/links.yaml")
+    go2_model_path = os.path.join(unitree_go2_description, "urdf/unitree_go2_robot.xacro")
     
-    # Robot description publisher for Unitree (needed for topic-based spawning)
-    unitree_robot_description = {"robot_description": Command(["xacro ", default_model_path])}
+    # Go2 Robot Description (GLOBAL - required for gazebo_ros2_control)
+    go2_robot_description = {
+        "robot_description": Command(['xacro ', go2_model_path])
+    }
     
-    unitree_robot_state_publisher = Node(
+    # Go2 Robot State Publisher (GLOBAL namespace - following original pattern)
+    go2_robot_state_publisher = Node(
         package="robot_state_publisher",
         executable="robot_state_publisher",
         output="screen",
         parameters=[
-            unitree_robot_description,
-            {"use_sim_time": True}
+            go2_robot_description,
+            {"use_sim_time": LaunchConfiguration("use_sim_time")}
         ],
     )
     
-    # Spawn Unitree Go2 using ros_gz_sim (GZ Harmonic compatible)
-    spawn_unitree = TimerAction(
-        period=8.0,  # Wait for drone to spawn first
+    # Go2 Spawn Entity in Gazebo (different entity name for identification)
+    go2_spawn_entity = Node(
+        package='ros_gz_sim',
+        executable='create',
+        output='screen',
+        arguments=[
+            '-name', 'go2',
+            '-topic', 'robot_description',
+            '-x', '5.0',
+            '-y', '0.0', 
+            '-z', '0.0'
+        ],
+    )
+    
+    # Go2 CHAMP Quadruped Controller (minimal namespace - only for cmd_vel)
+    go2_quadruped_controller = Node(
+        package="champ_base",
+        executable="quadruped_controller_node",
+        output="screen",
+        parameters=[
+            {"use_sim_time": LaunchConfiguration("use_sim_time")},
+            {"gazebo": True},
+            {"publish_joint_states": True},
+            {"publish_joint_control": True},
+            {"publish_foot_contacts": False},
+            {"joint_controller_topic": "joint_group_effort_controller/joint_trajectory"},
+            {"urdf": Command(['xacro ', go2_model_path])},
+            go2_joints_config,
+            go2_links_config,
+            go2_gait_config,
+            {"hardware_connected": False},
+            {"close_loop_odom": True},
+        ],
+        remappings=[
+            ("/cmd_vel/smooth", "/go2/cmd_vel"),
+        ],
+    )
+
+    # Go2 CHAMP State Estimator 
+    go2_state_estimator = Node(
+        package="champ_base",
+        executable="state_estimation_node",
+        output="screen",
+        parameters=[
+            {"use_sim_time": LaunchConfiguration("use_sim_time")},
+            {"orientation_from_imu": True},
+            {"urdf": Command(['xacro ', go2_model_path])},
+            go2_joints_config,
+            go2_links_config,
+            go2_gait_config,
+        ],
+    )
+    
+    # Go2 ROS2 Control Spawners (GLOBAL namespace - following original pattern)
+    go2_controller_spawner_js = TimerAction(
+        period=10.0,
         actions=[
             Node(
-                package='ros_gz_sim',
-                executable='create',
-                output='screen',
+                package="controller_manager",
+                executable="spawner",
+                output="screen",
                 arguments=[
-                    '-world', 'default',
-                    '-topic', 'robot_description',
-                    '-name', 'go2',
-                    '-x', go2_x,
-                    '-y', go2_y,
-                    '-z', go2_z,
-                    '-Y', '0.0'
+                    "--controller-manager-timeout", "120",
+                    "joint_states_controller",
                 ],
+                parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}],
             )
         ]
     )
 
-    # ====================
-    # 4. LAUNCH DRONE SYSTEM (NO GZ)
-    # ====================
-    
-    print("🚁 Starting drone system components...")
-    
-    drone_launch = TimerAction(
-        period=10.0,  # Wait for models to spawn
-        actions=[
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource([
-                    PathJoinSubstitution([
-                        FindPackageShare('drone_sim'),
-                        'launch',  
-                        'drone_no_gz.launch.py'
-                    ])
-                ]),
-                launch_arguments={
-                    'log_level': 'ERROR'
-                }.items()
-            )
-        ]
-    )
-
-    # ====================
-    # 5. LAUNCH UNITREE GO2 SYSTEM (NO GZ)
-    # ====================
-    
-    print("🐕 Starting Unitree Go2 system components...")
-    
-    unitree_launch = TimerAction(
-        period=15.0,  # 5 seconds after drone launch
-        actions=[
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource([
-                    PathJoinSubstitution([
-                        FindPackageShare('unitree_go2_sim'),
-                        'launch',  
-                        'unitree_go2_no_gz.launch.py'
-                    ])
-                ]),
-                launch_arguments={
-                    'world_init_x': go2_x,
-                    'world_init_y': go2_y,
-                    'world_init_z': go2_z,
-                    'robot_name': 'go2',
-                    'rviz': 'false',  # Disable individual RVIZ to avoid conflicts
-                }.items()
-            )
-        ]
-    )
-
-    # ====================
-    # 6. SAR COORDINATION AND VISUALIZATION
-    # ====================
-    
-    # Static TF for SAR mission coordination
-    coordination_tf = Node(
-        package='tf2_ros',
-        name='sar_mission_tf',
-        executable='static_transform_publisher',
-        arguments=['0.0', '0.0', '0.0', '0.0', '0', '0', 'map', 'mission_frame'],
-        parameters=[{"use_sim_time": True}]
-    )
-
-    # Main SAR RVIZ for monitoring both systems
-    sar_rviz = TimerAction(
-        period=20.0,  # After both systems are launched
+    go2_controller_spawner_effort = TimerAction(
+        period=15.0,
         actions=[
             Node(
-                package='rviz2',
-                executable='rviz2',
-                name='sar_rviz2',
-                output='screen',
-                arguments=['-d', '/home/ab/ros2_agent_sim_shared_volume/ros2_ws/src/ros2_agent_sim/sar_system/rviz/sar.rviz'],
-                parameters=[{"use_sim_time": True}]
+                package="controller_manager",
+                executable="spawner",
+                output="screen",
+                arguments=[
+                    "--controller-manager-timeout", "120",
+                    "joint_group_effort_controller",
+                ],
+                parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}],
             )
         ]
     )
-
-    # System status monitor
-    status_monitor = TimerAction(
-        period=25.0,
-        actions=[
-            Node(
-                package='demo_nodes_cpp',
-                executable='talker',
-                name='sar_status',
-                output='screen',
-                parameters=[{"use_sim_time": True}]
-            )
-        ]
-    )
-
-    # ====================
-    # BUILD LAUNCH DESCRIPTION
-    # ====================
     
-    ld.add_action(suppress_warnings)          # Suppress warnings
-    ld.add_action(gz_sim)                     # 1. Gazebo Harmonic with PX4 world
-    ld.add_action(unitree_robot_state_publisher)  # Robot description for spawning
-    ld.add_action(spawn_drone)                # 2. Spawn drone model (GZ Harmonic)
-    ld.add_action(spawn_unitree)              # 3. Spawn Unitree model (GZ Harmonic)
-    ld.add_action(drone_launch)               # 4. Drone system (no GZ)
-    ld.add_action(unitree_launch)             # 5. Unitree system (no GZ)
-    ld.add_action(coordination_tf)            # 6. Mission coordination
-    ld.add_action(sar_rviz)                   # 7. Unified visualization
-    ld.add_action(status_monitor)             # 8. System status
+    # Go2 EKF Localization Nodes (with go2 namespace for odom topics)
+    go2_base_to_footprint_ekf = Node(
+        package="robot_localization",
+        executable="ekf_node",
+        name="go2_base_to_footprint_ekf",
+        output="screen",
+        parameters=[
+            {"base_link_frame": "base_link"},
+            {"use_sim_time": LaunchConfiguration("use_sim_time")},
+            os.path.join(
+                get_package_share_directory("champ_base"),
+                "config", "ekf", "base_to_footprint.yaml",
+            ),
+        ],
+        remappings=[("odometry/filtered", "/go2/odom/local")],
+    )
 
-    return ld
+    go2_footprint_to_odom_ekf = Node(
+        package="robot_localization",
+        executable="ekf_node", 
+        name="go2_footprint_to_odom_ekf",
+        output="screen",
+        parameters=[
+            {"base_link_frame": "base_link"},
+            {"use_sim_time": LaunchConfiguration("use_sim_time")},
+            os.path.join(
+                get_package_share_directory("champ_base"),
+                "config", "ekf", "footprint_to_odom.yaml",
+            ),
+        ],
+        remappings=[("odometry/filtered", "/go2/odom")],
+    )
+    
+    # Go2 Controller Status Check 
+    go2_controller_status_check = TimerAction(
+        period=20.0,
+        actions=[
+            ExecuteProcess(
+                cmd=["bash", "-c", "echo 'Go2 Controller Status:' && ros2 control list_controllers"],
+                output='screen',
+            )
+        ]
+    )
+
+    # ============================================================================
+    # RETURN LAUNCH DESCRIPTION
+    # ============================================================================
+    
+    return LaunchDescription([
+        # Launch arguments
+        declare_use_sim_time,
+        declare_gui,
+        
+        # Environment setup
+        set_gazebo_resource_path,
+        
+        # Step 1: Single Gazebo world
+        gz_sim,
+        
+        # Step 1.5: ROS-Gazebo bridge (CRITICAL for clock sync)
+        gazebo_bridge,
+        
+        # Step 2: Go2 Robot (immediate spawn) - minimal namespace approach
+        go2_robot_state_publisher,
+        go2_spawn_entity,
+        go2_quadruped_controller,
+        go2_state_estimator,
+        go2_controller_spawner_js,
+        go2_controller_spawner_effort,
+        go2_controller_status_check,
+        go2_base_to_footprint_ekf,
+        go2_footprint_to_odom_ekf,
+        
+        # TODO: Step 3 - Drone (60 second delay) will be added next
+    ])
