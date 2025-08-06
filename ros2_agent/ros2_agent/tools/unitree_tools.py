@@ -609,7 +609,7 @@ class UnitreeTools:
 
             # Create publisher if it doesn't exist
             if not hasattr(node, 'go2_cmd_vel_pub'):
-                node.go2_cmd_vel_pub = node.create_publisher(Twist, '/cmd_vel', 10)
+                node.go2_cmd_vel_pub = node.create_publisher(Twist, '/go2/cmd_vel', 10)
                 node.get_logger().info("Created Go2 cmd_vel publisher")
 
             linear_speed = radius * angular_speed
