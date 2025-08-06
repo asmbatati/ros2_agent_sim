@@ -136,7 +136,7 @@ def generate_launch_description():
             '-name', 'go2',
             '-topic', 'robot_description',
             '-x', '0.0',
-            '-y', '-1.0', 
+            '-y', '-2.0', 
             '-z', '1.0'
         ],
     )

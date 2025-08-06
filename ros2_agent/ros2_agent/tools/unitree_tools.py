@@ -103,7 +103,8 @@ class UnitreeTools:
             
             # Create cmd_vel publisher if it doesn't exist
             if not hasattr(node, 'go2_cmd_vel_pub'):
-                node.go2_cmd_vel_pub = node.create_publisher(Twist, '/cmd_vel', 10)
+                node.go2_cmd_vel_pub = node.create_publisher(Twist, '/go2/cmd_vel', 10) #SAR System 
+                # node.go2_cmd_vel_pub = node.create_publisher(Twist, '/cmd_vel', 10) 
                 node.get_logger().info("Created Go2 cmd_vel publisher")
             
             # Straight-line movement with feedback control
@@ -586,6 +587,65 @@ class UnitreeTools:
             
             return f"✅ Go2 diagnostic test started!\n• Distance: {distance}m\n• Speed: {speed}m/s\n• Detailed logging: ACTIVE\n• Check logs for real-time analysis"
 
+        @tool
+        def go2_move_circle(radius: float = 1.0, angular_speed: float = 0.3, duration: float = 10.0) -> str:
+            """
+            Move the Go2 robot in a circular motion using velocity commands.
+            
+            Args:
+                radius: Radius of the circular path in meters (default: 1.0m)
+                angular_speed: Angular speed in rad/s (default: 0.3 rad/s, range: 0.1–1.0)
+                duration: Duration of motion in seconds (default: 10.0s)
+            
+            Returns:
+                str: Status message about the circular motion command
+            """
+            if radius <= 0:
+                return "Error: Radius must be positive"
+            if angular_speed <= 0 or angular_speed > 1.0:
+                return "Error: Angular speed must be between 0.1 and 1.0 rad/s"
+            if duration <= 0 or duration > 60:
+                return "Error: Duration must be between 1 and 60 seconds"
+
+            # Create publisher if it doesn't exist
+            if not hasattr(node, 'go2_cmd_vel_pub'):
+                node.go2_cmd_vel_pub = node.create_publisher(Twist, '/cmd_vel', 10)
+                node.get_logger().info("Created Go2 cmd_vel publisher")
+
+            linear_speed = radius * angular_speed
+
+            def circular_motion():
+                rate = node.create_rate(20)  # 20 Hz
+                start_time = time.time()
+
+                cmd = Twist()
+                cmd.linear.x = linear_speed
+                cmd.angular.z = angular_speed
+
+                while node.running and (time.time() - start_time < duration):
+                    node.go2_cmd_vel_pub.publish(cmd)
+                    rate.sleep()
+
+                # Stop after motion
+                stop_cmd = Twist()
+                for _ in range(5):
+                    node.go2_cmd_vel_pub.publish(stop_cmd)
+                    time.sleep(0.05)
+
+                node.get_logger().info(f"Go2 circular motion complete: radius={radius:.2f}m, duration={duration:.1f}s")
+
+            thread = threading.Thread(target=circular_motion)
+            thread.daemon = True
+            thread.start()
+
+            return (
+                f"✅ Go2 circular motion started!\n"
+                f"• Radius: {radius:.2f} m\n"
+                f"• Angular speed: {angular_speed:.2f} rad/s\n"
+                f"• Linear speed: {linear_speed:.2f} m/s\n"
+                f"• Duration: {duration:.1f} seconds"
+            )
+            
         @tool 
         def go2_calibrate_straight() -> str:
             """
@@ -653,5 +713,6 @@ class UnitreeTools:
             get_go2_position,
             go2_camera_feed,
             go2_test_straight_line,
+            go2_move_circle,
             go2_calibrate_straight
         ]
