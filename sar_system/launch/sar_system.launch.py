@@ -76,7 +76,7 @@ def generate_launch_description():
     )
 
     # ============================================================================
-    # STEP 1.5: ROS-GAZEBO BRIDGE (CRITICAL FOR CLOCK SYNC)
+    # STEP 1.5: ROS-GAZEBO BRIDGE 
     # ============================================================================
     
     # Bridge ROS 2 topics to Gazebo Sim (essential for proper simulation)
@@ -87,8 +87,6 @@ def generate_launch_description():
         output='screen',
         parameters=[{'use_sim_time': LaunchConfiguration("use_sim_time")}],
         arguments=[
-            # Clock synchronization (CRITICAL)
-            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
             # Joint states from Gazebo to ROS
             '/joint_states@sensor_msgs/msg/JointState@gz.msgs.Model',
             # TF from Gazebo to ROS  
@@ -268,7 +266,7 @@ def generate_launch_description():
         period=5.0,  # 5-second delay as requested
         actions=[
             
-            # 3.1: PX4 SITL Process (connects to existing Gazebo world)
+            # 3.1: PX4 SITL Process
             ExecuteProcess(
                 cmd=[
                     'bash', '-c',
@@ -278,8 +276,13 @@ def generate_launch_description():
                     'PX4_UXRCE_DDS_NS=drone ' +
                     'PX4_GZ_MODEL_POSE="0,0,0.3" ' +
                     'PX4_GZ_WORLD=default ' +
-                    'PX4_GZ_STANDALONE=1 ' +                   # CRITICAL: Connect to existing Gazebo
-                    'PX4_SIM_SPEED_FACTOR=1.0 ' +             # Force real-time simulation
+                    'PX4_GZ_STANDALONE=1 ' +
+                    'PX4_SIM_SPEED_FACTOR=1.0 ' +
+                    'PX4_ENABLE_LOCKSTEP=0 ' +              # ✅ CRITICAL: Disable lockstep timing
+                    'PX4_IMU_INTEGRATION_RATE=250 ' +       # ✅ Match Gazebo physics rate
+                    'PX4_PARAM_IMU_INTEG_RATE=250 ' +       # ✅ Set IMU integration rate parameter
+                    'PX4_PARAM_SENS_IMU_MODE=1 ' +          # ✅ Set IMU sensor mode to reduce timing sensitivity
+                    'GZ_SIM_RESOURCE_PATH=/home/user/shared_volume/PX4-Autopilot/Tools/simulation/gz/models:/home/user/shared_volume/PX4-Autopilot/Tools/simulation/gz/worlds ' +
                     './build/px4_sitl_default/bin/px4 -i 1'
                 ],
                 output='screen',
@@ -391,7 +394,7 @@ def generate_launch_description():
                     
                     # IMU and other sensors
                     '/imu_gimbal@sensor_msgs/msg/Imu[gz.msgs.IMU',
-                    '/world/default/model/x500_lidar_camera_1/link/base_link/sensor/imu_sensor/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+                    # '/world/default/model/x500_lidar_camera_1/link/base_link/sensor/imu_sensor/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
                     '/world/default/model/x500_lidar_camera_1/link/base_link/sensor/air_pressure_sensor/air_pressure@sensor_msgs/msg/FluidPressure[gz.msgs.FluidPressure',
                     '/navsat@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
                     
@@ -410,7 +413,7 @@ def generate_launch_description():
                     ('/imu_gimbal', '/drone/imu_gimbal'),
                     ('/scan', '/drone/scan'),
                     ('/scan/points', '/drone/scan/points'),
-                    ('/world/default/model/x500_lidar_camera_1/link/base_link/sensor/imu_sensor/imu', '/drone/imu'),
+                    # ('/world/default/model/x500_lidar_camera_1/link/base_link/sensor/imu_sensor/imu', '/drone/imu'),
                     ('/world/default/model/x500_lidar_camera_1/link/base_link/sensor/air_pressure_sensor/air_pressure', '/drone/air_pressure'),
                     ('/navsat', '/drone/gps'),
                 ],
