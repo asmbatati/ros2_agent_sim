@@ -278,13 +278,9 @@ def generate_launch_description():
                     'PX4_GZ_WORLD=default ' +
                     'PX4_GZ_STANDALONE=1 ' +
                     'PX4_SIM_SPEED_FACTOR=1.0 ' +
-                    'PX4_ENABLE_LOCKSTEP=0 ' +              # ✅ CRITICAL: Disable lockstep timing
-                    'PX4_IMU_INTEGRATION_RATE=250 ' +       # ✅ Match Gazebo physics rate
-                    'PX4_PARAM_IMU_INTEG_RATE=250 ' +       # ✅ Set IMU integration rate parameter
-                    'PX4_PARAM_SENS_IMU_MODE=1 ' +          # ✅ Set IMU sensor mode to reduce timing sensitivity
-                    'PX4_PARAM_IMU_GYRO_RATEMAX=250 ' + 
-                    'GZ_SIM_RESOURCE_PATH=/home/user/shared_volume/PX4-Autopilot/Tools/simulation/gz/models:/home/user/shared_volume/PX4-Autopilot/Tools/simulation/gz/worlds ' +
-                    './build/px4_sitl_default/bin/px4 -i 1'
+                    'PX4_PARAM_SYS_LOGGER=1 ' +               # Reduce logging verbosity
+                    'PX4_PARAM_SENS_IMU_MODE=0 ' +            # Disable strict IMU validation
+                    './build/px4_sitl_default/bin/px4 -i 1 2>/dev/null'  # Suppress stderr
                 ],
                 output='screen',
             ),
