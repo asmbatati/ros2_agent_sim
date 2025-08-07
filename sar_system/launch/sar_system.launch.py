@@ -282,6 +282,7 @@ def generate_launch_description():
                     'PX4_IMU_INTEGRATION_RATE=250 ' +       # ✅ Match Gazebo physics rate
                     'PX4_PARAM_IMU_INTEG_RATE=250 ' +       # ✅ Set IMU integration rate parameter
                     'PX4_PARAM_SENS_IMU_MODE=1 ' +          # ✅ Set IMU sensor mode to reduce timing sensitivity
+                    'PX4_PARAM_IMU_GYRO_RATEMAX=250 ' + 
                     'GZ_SIM_RESOURCE_PATH=/home/user/shared_volume/PX4-Autopilot/Tools/simulation/gz/models:/home/user/shared_volume/PX4-Autopilot/Tools/simulation/gz/worlds ' +
                     './build/px4_sitl_default/bin/px4 -i 1'
                 ],
