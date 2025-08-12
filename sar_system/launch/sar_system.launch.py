@@ -503,11 +503,12 @@ def generate_launch_description():
     # ============================================================================
     
     # Combined RViz for both robots (using Go2's RViz config as base)
+    sar_system_share = get_package_share_directory("sar_system")
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
         name='sar_system_rviz',
-        arguments=['-d', os.path.join(unitree_go2_sim, "rviz/rviz.rviz")],
+        arguments=['-d', os.path.join(sar_system_share, "rviz/sar.rviz")],
         condition=IfCondition(LaunchConfiguration("rviz")),
         parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}]
     )

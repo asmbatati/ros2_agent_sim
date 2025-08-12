@@ -4,13 +4,11 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Global Options1
         - /Status1
+        - /RobotModel1/Description Topic1
         - /TF1/Frames1
-        - /Drone1
-        - /Go21
       Splitter Ratio: 0.5
-    Tree Height: 500
+    Tree Height: 720
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -28,8 +26,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
-
+    SyncSource: Go2 Lidar Point Cloud
 Visualization Manager:
   Class: ""
   Displays:
@@ -48,312 +45,413 @@ Visualization Manager:
         Y: 0
         Z: 0
       Plane: XY
-      Plane Cell Count: 20
+      Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
       Value: true
-
-    # ========================================
-    # TF DISPLAY - Shows both robot frames
-    # ========================================
+    - Alpha: 1
+      Class: rviz_default_plugins/RobotModel
+      Collision Enabled: true
+      Description File: ""
+      Description Source: Topic
+      Description Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /robot_description
+      Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        camera_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        imu_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lf_foot_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lf_hip_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lf_lower_leg_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lf_upper_leg_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lh_foot_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lh_hip_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lh_lower_leg_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lh_upper_leg_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        lidar_l1_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rf_foot_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rf_hip_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rf_lower_leg_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rf_upper_leg_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rh_foot_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rh_hip_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rh_lower_leg_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        rh_upper_leg_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        trunk:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        velodyne:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        velodyne_base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+      Mass Properties:
+        Inertia: false
+        Mass: false
+      Name: RobotModel
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
+      Visual Enabled: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: false
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 0
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: PointCloud2
+      Position Transformer: XYZ
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.009999999776482582
+      Style: Flat Squares
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /velodyne_points/points
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: false
     - Class: rviz_default_plugins/TF
       Enabled: true
+      Filter (blacklist): ""
+      Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        # Drone frames
+        base_link:
+          Value: true
+        base_link_frd:
+          Value: false
+        camera_link:
+          Value: false
         drone/base_link:
           Value: true
+        drone/base_link_frd:
+          Value: false
         drone/gimbal_camera:
-          Value: true
+          Value: false
         drone/odom:
           Value: false
-        x500_lidar_camera_1/lidar_link/gpu_lidar:
-          Value: true
-        # Go2 frames
-        go2/base_link:
-          Value: true
-        go2/lf_foot_link:
+        drone/odom_ned:
           Value: false
-        go2/rf_foot_link:
+        imu_link:
           Value: false
-        go2/lh_foot_link:
+        lf_foot_link:
           Value: false
-        go2/rh_foot_link:
+        lf_hip_link:
           Value: false
-        # Common frames
+        lf_lower_leg_link:
+          Value: false
+        lf_upper_leg_link:
+          Value: false
+        lh_foot_link:
+          Value: false
+        lh_hip_link:
+          Value: false
+        lh_lower_leg_link:
+          Value: false
+        lh_upper_leg_link:
+          Value: false
+        lidar_l1_link:
+          Value: false
         map:
-          Value: true
-      Marker Scale: 0.5
+          Value: false
+        map_ned:
+          Value: false
+        odom:
+          Value: false
+        odom_ned:
+          Value: false
+        rf_foot_link:
+          Value: false
+        rf_hip_link:
+          Value: false
+        rf_lower_leg_link:
+          Value: false
+        rf_upper_leg_link:
+          Value: false
+        rh_foot_link:
+          Value: false
+        rh_hip_link:
+          Value: false
+        rh_lower_leg_link:
+          Value: false
+        rh_upper_leg_link:
+          Value: false
+        trunk:
+          Value: false
+        velodyne:
+          Value: false
+        velodyne_base_link:
+          Value: false
+        x500_lidar_camera_1/lidar_link/gpu_lidar:
+          Value: false
+      Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
-      Show Names: true
+      Show Names: false
       Tree:
         map:
           drone/odom:
             drone/base_link:
+              base_link:
+                base_link_frd:
+                  {}
+                lidar_l1_link:
+                  {}
+                trunk:
+                  camera_link:
+                    {}
+                  imu_link:
+                    {}
+                  lf_hip_link:
+                    lf_upper_leg_link:
+                      lf_lower_leg_link:
+                        lf_foot_link:
+                          {}
+                  lh_hip_link:
+                    lh_upper_leg_link:
+                      lh_lower_leg_link:
+                        lh_foot_link:
+                          {}
+                  rf_hip_link:
+                    rf_upper_leg_link:
+                      rf_lower_leg_link:
+                        rf_foot_link:
+                          {}
+                  rh_hip_link:
+                    rh_upper_leg_link:
+                      rh_lower_leg_link:
+                        rh_foot_link:
+                          {}
+                velodyne_base_link:
+                  velodyne:
+                    {}
+              drone/base_link_frd:
+                {}
               drone/gimbal_camera:
                 {}
               x500_lidar_camera_1/lidar_link/gpu_lidar:
                 {}
-          go2/base_link:
-            go2/trunk:
-              go2/lf_hip_link:
-                go2/lf_upper_leg_link:
-                  go2/lf_lower_leg_link:
-                    go2/lf_foot_link:
-                      {}
-              go2/rf_hip_link:
-                go2/rf_upper_leg_link:
-                  go2/rf_lower_leg_link:
-                    go2/rf_foot_link:
-                      {}
-              go2/lh_hip_link:
-                go2/lh_upper_leg_link:
-                  go2/lh_lower_leg_link:
-                    go2/lh_foot_link:
-                      {}
-              go2/rh_hip_link:
-                go2/rh_upper_leg_link:
-                  go2/rh_lower_leg_link:
-                    go2/rh_foot_link:
-                      {}
+            drone/odom_ned:
+              {}
+          map_ned:
+            {}
+          odom:
+            odom_ned:
+              {}
       Update Interval: 0
       Value: true
-
-    # ========================================
-    # DRONE DISPLAYS
-    # ========================================
-    - Class: rviz_common/Group
-      Displays:
-        # Drone Camera
-        - Class: rviz_default_plugins/Image
-          Enabled: true
-          Max Value: 1
-          Median window: 5
-          Min Value: 0
-          Name: Drone Camera
-          Normalize Range: true
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /drone/gimbal_camera
-          Value: true
-
-        # Drone LiDAR
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz_default_plugins/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: Intensity
-          Decay Time: 0
-          Enabled: true
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Max Intensity: 0
-          Min Color: 0; 0; 0
-          Min Intensity: 0
-          Name: Drone LiDAR
-          Position Transformer: XYZ
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.01
-          Style: Flat Squares
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /drone/scan/points
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: true
-
-        # Drone Path Visualization
-        - Alpha: 1
-          Buffer Length: 1
-          Class: rviz_default_plugins/Path
-          Color: 25; 255; 0
-          Enabled: true
-          Head Diameter: 0.3
-          Head Length: 0.2
-          Length: 0.3
-          Line Style: Lines
-          Line Width: 0.03
-          Name: Drone Vehicle Path
-          Offset:
-            X: 0
-            Y: 0
-            Z: 0
-          Pose Color: 255; 85; 255
-          Pose Style: None
-          Radius: 0.03
-          Shaft Diameter: 0.1
-          Shaft Length: 0.1
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /offboard_visualizer/vehicle_path
-          Value: true
-
-        # Drone Setpoint Path
-        - Alpha: 1
-          Buffer Length: 1
-          Class: rviz_default_plugins/Path
-          Color: 255; 25; 0
-          Enabled: true
-          Head Diameter: 0.3
-          Head Length: 0.2
-          Length: 0.3
-          Line Style: Lines
-          Line Width: 0.03
-          Name: Drone Setpoint Path
-          Offset:
-            X: 0
-            Y: 0
-            Z: 0
-          Pose Color: 255; 85; 255
-          Pose Style: None
-          Radius: 0.03
-          Shaft Diameter: 0.1
-          Shaft Length: 0.1
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /offboard_visualizer/setpoint_path
-          Value: true
-
+    - Class: rviz_default_plugins/Image
+      Enabled: false
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Go2 Camera
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /rgb_image
+      Value: false
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: false
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 0
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: Go2 Lidar Point Cloud
+      Position Transformer: XYZ
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.009999999776482582
+      Style: Flat Squares
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /velodyne_points/points
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: false
+    - Class: rviz_default_plugins/Image
+      Enabled: false
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: "Drone Gimbal Camera "
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /drone/gimbal_camera
+      Value: false
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
       Enabled: true
-      Name: Drone
-
-    # ========================================
-    # GO2 DISPLAYS
-    # ========================================
-    - Class: rviz_common/Group
-      Displays:
-        # Go2 Robot Model
-        - Alpha: 1
-          Class: rviz_default_plugins/RobotModel
-          Collision Enabled: false
-          Description File: ""
-          Description Source: Topic
-          Description Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /go2/robot_description
-          Enabled: true
-          Links:
-            All Links Enabled: true
-            Expand Joint Details: false
-            Expand Link Details: false
-            Expand Tree: false
-            Link Tree Style: Links in Alphabetic Order
-          Mass Properties:
-            Inertia: false
-            Mass: false
-          Name: Go2 Robot Model
-          TF Prefix: go2
-          Update Interval: 0
-          Value: true
-          Visual Enabled: true
-
-        # Go2 LiDAR (if equipped)
-        - Alpha: 1
-          Autocompute Intensity Bounds: true
-          Autocompute Value Bounds:
-            Max Value: 10
-            Min Value: -10
-            Value: true
-          Axis: Z
-          Channel Name: intensity
-          Class: rviz_default_plugins/PointCloud2
-          Color: 255; 255; 255
-          Color Transformer: Intensity
-          Decay Time: 0
-          Enabled: false
-          Invert Rainbow: false
-          Max Color: 255; 255; 255
-          Max Intensity: 0
-          Min Color: 0; 0; 0
-          Min Intensity: 0
-          Name: Go2 LiDAR
-          Position Transformer: XYZ
-          Selectable: true
-          Size (Pixels): 3
-          Size (m): 0.01
-          Style: Flat Squares
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /go2/velodyne_points/points
-          Use Fixed Frame: true
-          Use rainbow: true
-          Value: false
-
-        # Go2 Odometry
-        - Angle Tolerance: 0.1
-          Class: rviz_default_plugins/Odometry
-          Covariance:
-            Orientation:
-              ColorStyle: Unique
-              Frame: Local
-              Offset: 1
-              Scale: 1
-              Value: true
-            Position:
-              ColorStyle: Unique
-              Frame: Local
-              Offset: 1
-              Scale: 1
-              Value: true
-            Value: false
-          Enabled: true
-          Keep: 100
-          Name: Go2 Odometry
-          Position Tolerance: 0.1
-          Shape:
-            Alpha: 0.5
-            Axes Length: 1
-            Axes Radius: 0.1
-            Color: 255; 25; 0
-            Head Length: 0.3
-            Head Radius: 0.1
-            Shaft Length: 1
-            Shaft Radius: 0.05
-            Value: Arrow
-          Topic:
-            Depth: 5
-            Durability Policy: Volatile
-            Filter size: 10
-            History Policy: Keep Last
-            Reliability Policy: Reliable
-            Value: /go2/odom
-          Value: true
-
-      Enabled: true
-      Name: Go2
-
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 0
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: Drone Lidar Point Cloud
+      Position Transformer: XYZ
+      Selectable: true
+      Size (Pixels): 3
+      Size (m): 0.009999999776482582
+      Style: Flat Squares
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /drone/scan/points
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: map
+    Fixed Frame: base_link
     Frame Rate: 30
   Name: root
   Tools:
@@ -396,36 +494,57 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 8.0
+      Distance: 3.302166700363159
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 1.5
-        Y: 0
-        Z: 0.5
+        X: -0.877393901348114
+        Y: 0.6250709295272827
+        Z: 0.5474207997322083
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5
+      Pitch: 0.17539836466312408
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.785398006439209
-    Saved: ~
-
+      Yaw: 2.6354002952575684
+    Saved:
+      - Class: rviz_default_plugins/Orbit
+        Distance: 5.910597324371338
+        Enable Stereo Rendering:
+          Stereo Eye Separation: 0.05999999865889549
+          Stereo Focal Distance: 1
+          Swap Stereo Eyes: false
+          Value: false
+        Focal Point:
+          X: 0
+          Y: 0
+          Z: 0
+        Focal Shape Fixed Size: true
+        Focal Shape Size: 0.05000000074505806
+        Invert Z Axis: false
+        Name: Orbit
+        Near Clip Distance: 0.009999999776482582
+        Pitch: 0.785398006439209
+        Target Frame: <Fixed Frame>
+        Value: Orbit (rviz)
+        Yaw: 0.785398006439209
 Window Geometry:
   Displays:
     collapsed: false
-  Drone Camera:
+  "Drone Gimbal Camera ":
+    collapsed: false
+  Go2 Camera:
     collapsed: false
   Height: 1011
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd0000000400000000000001560000035dfc0200000009fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007200740069006500730200000186000001060000030c00000261fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b0000035d000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb0000001600440072006f006e006500200043006100760065007200610100000269000001200000002800ffffff000000010000010f0000035dfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003b0000035d000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007800000003efc0100000002fb0000000800540069006d00650100000000000007800000025300fffffffb0000000800540069006d006501000000000000045000000000000000000000052f0000035d00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000017f00000359fc020000000afb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003b00000359000000c700fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261fb000000140047006f0032002000430061006d00650072006100000001e8000000a60000001600fffffffb0000002800440072006f006e0065002000470069006d00620061006c002000430061006d006500720061002000000001da000000b40000001600ffffff000000010000010f00000359fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003b00000359000000a000fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000073e0000003efc0100000002fb0000000800540069006d006501000000000000073e0000025300fffffffb0000000800540069006d00650100000000000004500000000000000000000004a40000035900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -434,6 +553,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1920
-  X: 0
+  Width: 1854
+  X: 66
   Y: 32
