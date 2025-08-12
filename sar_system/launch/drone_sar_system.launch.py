@@ -135,6 +135,14 @@ def generate_launch_description():
                 arguments=['0', '0', '0.295', '0', '0', '0', 'drone/base_link', 'x500_lidar_camera_1/lidar_link/gpu_lidar'],
             ),
             
+            # Connect drone/odom to drone/base_link (MISSING TF LINK!)
+            Node(
+                package='tf2_ros',
+                name='drone_odom_to_drone_base_link_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0', '0', '0', '0', 'drone/odom', 'drone/base_link'],
+            ),
+            
             # Connect drone/base_link to base_link (line 134-139 from original)
             Node(
                 package='tf2_ros',
