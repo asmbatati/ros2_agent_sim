@@ -107,11 +107,51 @@ def generate_launch_description():
     # STEP 2: DRONE TF TRANSFORMS
     # ============================================================================
     
-    # Drone Static TF Transforms (EXACT copy from original working code)
+    # Drone Static TF Transforms (EXACT copy from original drone.launch.py)
     drone_tf_transforms = TimerAction(
         period=4.0,  # After drone spawn completes
         actions=[
-            # Map->odom transform (essential for navigation)
+            # Static TF map/world -> local_pose_ENU (line 98-103 from original)
+            Node(
+                package='tf2_ros',
+                name='map2px4_drone_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0.0', '0.0', '0.1', '0.0', '0', '0', 'map', 'drone/odom'],
+            ),
+            
+            # Static TF base_link -> Gimbal_Camera (line 112-117 from original)
+            Node(
+                package='tf2_ros',
+                name='drone_base2gimbal_camera_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0.1', '0', '0.13', '1.5708', '0', '1.5708', 'drone/base_link', 'drone/gimbal_camera'],
+            ),
+            
+            # Static TF base_link -> Lidar (line 126-131 from original)
+            Node(
+                package='tf2_ros',
+                name='drone_base2lidar_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0.295', '0', '0', '0', 'drone/base_link', 'x500_lidar_camera_1/lidar_link/gpu_lidar'],
+            ),
+            
+            # Connect drone/base_link to base_link (line 134-139 from original)
+            Node(
+                package='tf2_ros',
+                name='drone_drone_base_to_base_link_tf_node', 
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0', '0', '0', '0', 'drone/base_link', 'base_link'],
+            ),
+            
+            # Base link to base_link_frd (line 142-147 from original)
+            Node(
+                package='tf2_ros',
+                name='base_link_to_frd_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'base_link', 'base_link_frd'],
+            ),
+            
+            # Connect map to odom (line 150-155 from original)
             Node(
                 package='tf2_ros',
                 name='map_to_odom_tf_node',
@@ -119,54 +159,12 @@ def generate_launch_description():
                 arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom'],
             ),
             
-            # Odom to odom_ned (ENU to NED conversion)
+            # Connect odom to odom_ned (line 158-163 from original)
             Node(
                 package='tf2_ros',
                 name='odom_to_odom_ned_tf_node',
                 executable='static_transform_publisher',
                 arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'odom', 'odom_ned'],
-            ),
-            
-            # Static TF map/world -> local_pose_ENU
-            Node(
-                package='tf2_ros',
-                name='map2px4_drone_tf_node',
-                executable='static_transform_publisher',
-                arguments=['0.0', '0.0', '0.3', '0.0', '0', '0', 'map', 'drone/odom'],
-            ),
-            
-            # Static TF base_link -> Gimbal_Camera
-            Node(
-                package='tf2_ros',
-                name='drone_base2gimbal_camera_tf_node',
-                executable='static_transform_publisher',
-                arguments=['0.1', '0', '0.13', '1.5708', '0', '1.5708', 
-                          'drone/base_link', 'drone/gimbal_camera'],
-            ),
-            
-            # Static TF base_link -> Lidar
-            Node(
-                package='tf2_ros',
-                name='drone_base2lidar_tf_node',
-                executable='static_transform_publisher',
-                arguments=['0', '0', '0.295', '0', '0', '0', 
-                          'drone/base_link', 'x500_lidar_camera_1/lidar_link/gpu_lidar'],
-            ),
-            
-            # Connect drone/base_link to base_link (for multi-robot) - FROM ORIGINAL
-            Node(
-                package='tf2_ros',
-                name='drone_base_to_base_link_tf_node', 
-                executable='static_transform_publisher',
-                arguments=['0', '0', '0', '0', '0', '0', 'drone/base_link', 'base_link'],
-            ),
-            
-            # Base link to base_link_frd (ENU to NED conversion) - FROM ORIGINAL
-            Node(
-                package='tf2_ros',
-                name='base_link_to_frd_tf_node',
-                executable='static_transform_publisher',
-                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'base_link', 'base_link_frd'],
             ),
         ]
     )
@@ -175,45 +173,43 @@ def generate_launch_description():
     # STEP 3: DRONE SENSOR BRIDGE
     # ============================================================================
     
-    # Drone ROS-Gazebo Bridge for Sensors
+    # Drone ROS-Gazebo Bridge for Sensors (EXACT format from original drone.launch.py)
     drone_sensor_bridge = TimerAction(
         period=6.0,  # After TF setup is complete
         actions=[
             Node(
                 package='ros_gz_bridge',
-                name='drone_sensor_bridge',
+                name='ros_bridge_node',
                 executable='parameter_bridge',
                 arguments=[
-                    # Camera data
-                    '/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/image@sensor_msgs/msg/Image[gz.msgs.Image',
-                    '/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-                    
-                    # Lidar data  
+                    # Existing topics (unchanged) - from original line 170-184
+                    '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
                     '/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
                     '/scan/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-                    
-                    # IMU and other sensors
-                    '/imu_gimbal@sensor_msgs/msg/Imu[gz.msgs.IMU',
-                    '/world/default/model/x500_lidar_camera_1/link/base_link/sensor/air_pressure_sensor/air_pressure@sensor_msgs/msg/FluidPressure[gz.msgs.FluidPressure',
-                    '/navsat@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
-                    
-                    # Gimbal control
+                    '/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/image@sensor_msgs/msg/Image[gz.msgs.Image',
+                    '/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
                     '/gimbal/cmd_yaw@std_msgs/msg/Float64]gz.msgs.Double',
                     '/gimbal/cmd_roll@std_msgs/msg/Float64]gz.msgs.Double',
                     '/gimbal/cmd_pitch@std_msgs/msg/Float64]gz.msgs.Double',
-                ],
-                # Remap topics to drone namespace
-                remappings=[
-                    ('/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/image', '/drone/gimbal_camera'),
-                    ('/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/camera_info', '/drone/gimbal_camera_info'),
-                    ('/gimbal/cmd_yaw', '/drone/gimbal/cmd_yaw'),
-                    ('/gimbal/cmd_roll', '/drone/gimbal/cmd_roll'),
-                    ('/gimbal/cmd_pitch', '/drone/gimbal/cmd_pitch'),
-                    ('/imu_gimbal', '/drone/imu_gimbal'),
-                    ('/scan', '/drone/scan'),
-                    ('/scan/points', '/drone/scan/points'),
-                    ('/world/default/model/x500_lidar_camera_1/link/base_link/sensor/air_pressure_sensor/air_pressure', '/drone/air_pressure'),
-                    ('/navsat', '/drone/gps'),
+                    '/imu_gimbal@sensor_msgs/msg/Imu[gz.msgs.IMU',
+                    '/world/default/model/x500_lidar_camera_1/link/base_link/sensor/imu_sensor/imu@sensor_msgs/msg/Imu[gz.msgs.IMU',
+                    '/world/default/model/x500_lidar_camera_1/link/base_link/sensor/air_pressure_sensor/air_pressure@sensor_msgs/msg/FluidPressure[gz.msgs.FluidPressure',
+                    '/navsat@sensor_msgs/msg/NavSatFix[gz.msgs.NavSat',
+                    
+                    # Remapping (from original line 185-199)
+                    '--ros-args', '-r', '/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/image:=drone/gimbal_camera',
+                    '--ros-args', '-r', '/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/camera_info:=drone/gimbal_camera_info',
+                    '--ros-args', '-r', '/gimbal/cmd_yaw:=drone/gimbal/cmd_yaw',
+                    '--ros-args', '-r', '/gimbal/cmd_roll:=drone/gimbal/cmd_roll',
+                    '--ros-args', '-r', '/gimbal/cmd_pitch:=drone/gimbal/cmd_pitch',
+                    '--ros-args', '-r', '/imu_gimbal:=drone/imu_gimbal',
+                    '--ros-args', '-r', '/scan:=drone/scan',
+                    '--ros-args', '-r', '/scan/points:=drone/scan/points',
+                    
+                    # Sensors Remapping (from original line 195-199)
+                    '--ros-args', '-r', '/world/default/model/x500_lidar_camera_1/link/base_link/sensor/imu_sensor/imu:=drone/imu',
+                    '--ros-args', '-r', '/world/default/model/x500_lidar_camera_1/link/base_link/sensor/air_pressure_sensor/air_pressure:=drone/air_pressure',
+                    '--ros-args', '-r', '/navsat:=drone/gps',
                 ],
             )
         ]

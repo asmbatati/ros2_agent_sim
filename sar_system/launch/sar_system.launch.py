@@ -403,12 +403,51 @@ def generate_launch_description():
         ]
     )
         
-    # Drone Static TF Transforms (following original pattern)
-    # These handle coordinate frame conversions (ENU ↔ NED, map ↔ odom)
+    # Drone Static TF Transforms (EXACT copy from corrected drone_sar_system.launch.py)
     drone_tf_transforms = TimerAction(
         period=5.0,  # Start after Go2 TFs are established
         actions=[
-            # Map->odom transform (essential for navigation)
+            # Static TF map/world -> local_pose_ENU (line 98-103 from original)
+            Node(
+                package='tf2_ros',
+                name='map2px4_drone_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0.0', '0.0', '0.1', '0.0', '0', '0', 'map', 'drone/odom'],
+            ),
+            
+            # Static TF base_link -> Gimbal_Camera (line 112-117 from original)
+            Node(
+                package='tf2_ros',
+                name='drone_base2gimbal_camera_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0.1', '0', '0.13', '1.5708', '0', '1.5708', 'drone/base_link', 'drone/gimbal_camera'],
+            ),
+            
+            # Static TF base_link -> Lidar (line 126-131 from original)
+            Node(
+                package='tf2_ros',
+                name='drone_base2lidar_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0.295', '0', '0', '0', 'drone/base_link', 'x500_lidar_camera_1/lidar_link/gpu_lidar'],
+            ),
+            
+            # Connect drone/base_link to base_link (line 134-139 from original)
+            Node(
+                package='tf2_ros',
+                name='drone_drone_base_to_base_link_tf_node', 
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0', '0', '0', '0', 'drone/base_link', 'base_link'],
+            ),
+            
+            # Base link to base_link_frd (line 142-147 from original)
+            Node(
+                package='tf2_ros',
+                name='base_link_to_frd_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'base_link', 'base_link_frd'],
+            ),
+            
+            # Connect map to odom (line 150-155 from original)
             Node(
                 package='tf2_ros',
                 name='map_to_odom_tf_node',
@@ -416,54 +455,12 @@ def generate_launch_description():
                 arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom'],
             ),
             
-            # Odom to odom_ned (ENU to NED conversion)
+            # Connect odom to odom_ned (line 158-163 from original)
             Node(
                 package='tf2_ros',
                 name='odom_to_odom_ned_tf_node',
                 executable='static_transform_publisher',
                 arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'odom', 'odom_ned'],
-            ),
-            
-            # Static TF map/world -> local_pose_ENU
-            Node(
-                package='tf2_ros',
-                name='map2px4_drone_tf_node',
-                executable='static_transform_publisher',
-                arguments=['0.0', '0.0', '0.3', '0.0', '0', '0', 'map', 'drone/odom'],
-            ),
-            
-            # Static TF base_link -> Gimbal_Camera
-            Node(
-                package='tf2_ros',
-                name='drone_base2gimbal_camera_tf_node',
-                executable='static_transform_publisher',
-                arguments=['0.1', '0', '0.13', '1.5708', '0', '1.5708', 
-                          'drone/base_link', 'drone/gimbal_camera'],
-            ),
-            
-            # Static TF base_link -> Lidar
-            Node(
-                package='tf2_ros',
-                name='drone_base2lidar_tf_node',
-                executable='static_transform_publisher',
-                arguments=['0', '0', '0.295', '0', '0', '0', 
-                          'drone/base_link', 'x500_lidar_camera_1/lidar_link/gpu_lidar'],
-            ),
-            
-            # Connect drone/base_link to base_link (for multi-robot)
-            Node(
-                package='tf2_ros',
-                name='drone_base_to_base_link_tf_node', 
-                executable='static_transform_publisher',
-                arguments=['0', '0', '0', '0', '0', '0', 'drone/base_link', 'base_link'],
-            ),
-            
-            # Base link to base_link_frd (ENU to NED conversion)
-            Node(
-                package='tf2_ros',
-                name='base_link_to_frd_tf_node',
-                executable='static_transform_publisher',
-                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'base_link', 'base_link_frd'],
             ),
         ]
     )
@@ -577,10 +574,10 @@ def generate_launch_description():
         go2_tf_transforms,
         
         # Step 3: Drone (5-second delayed spawn) - with full functionality
-        # drone_delayed_spawn,
-        # drone_tf_transforms,
-        # drone_sensor_bridge,
-        # drone_status_check,
+        drone_delayed_spawn,
+        drone_tf_transforms,
+        drone_sensor_bridge,
+        drone_status_check,
         
         # Step 4: Visualization
         rviz_node,
