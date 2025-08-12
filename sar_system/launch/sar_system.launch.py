@@ -39,6 +39,35 @@ def generate_launch_description():
         default_value="true", 
         description="Launch Gazebo with GUI"
     )
+    
+    declare_rviz = DeclareLaunchArgument(
+        "rviz",
+        default_value="true", 
+        description="Launch RViz visualization"
+    )
+    
+    declare_go2_robot_name = DeclareLaunchArgument(
+        "go2_robot_name",
+        default_value="go2",
+        description="Unitree Go2 robot name"
+    )
+    
+    declare_go2_world_init_x = DeclareLaunchArgument(
+        "go2_world_init_x", 
+        default_value="0.0"
+    )
+    declare_go2_world_init_y = DeclareLaunchArgument(
+        "go2_world_init_y", 
+        default_value="-2.0"
+    )
+    declare_go2_world_init_z = DeclareLaunchArgument(
+        "go2_world_init_z", 
+        default_value="1.0"
+    )
+    declare_go2_world_init_heading = DeclareLaunchArgument(
+        "go2_world_init_heading", 
+        default_value="0.0"
+    )
 
     # ============================================================================
     # ENVIRONMENT SETUP
@@ -85,12 +114,26 @@ def generate_launch_description():
         executable='parameter_bridge',
         name='gazebo_bridge',
         output='screen',
-        parameters=[{'use_sim_time': LaunchConfiguration("use_sim_time")}],
+        parameters=[
+            {'use_sim_time': LaunchConfiguration("use_sim_time")},
+            {'qos_overrides./clock.publisher.durability': 'transient_local'}
+        ],
         arguments=[
-            # Joint states from Gazebo to ROS
+            # Gazebo to ROS - Essential for both robots
+            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
             '/joint_states@sensor_msgs/msg/JointState@gz.msgs.Model',
-            # TF from Gazebo to ROS  
             '/tf@tf2_msgs/msg/TFMessage@gz.msgs.Pose_V',
+            
+            # Unitree Go2 specific topics
+            '/imu/data@sensor_msgs/msg/Imu@gz.msgs.IMU',
+            '/velodyne_points/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked',
+            '/unitree_lidar/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked',
+            '/odom@nav_msgs/msg/Odometry@gz.msgs.Odometry',
+            '/rgb_image@sensor_msgs/msg/Image@gz.msgs.Image',
+            
+            # ROS to Gazebo - Control topics
+            '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+            '/joint_group_effort_controller/joint_trajectory@trajectory_msgs/msg/JointTrajectory]gz.msgs.JointTrajectory',
         ],
     )
 
@@ -125,17 +168,18 @@ def generate_launch_description():
         ],
     )
     
-    # Go2 Spawn Entity in Gazebo (different entity name for identification)
+    # Go2 Spawn Entity in Gazebo (using configurable positions)
     go2_spawn_entity = Node(
         package='ros_gz_sim',
         executable='create',
         output='screen',
         arguments=[
-            '-name', 'go2',
+            '-name', LaunchConfiguration('go2_robot_name'),
             '-topic', 'robot_description',
-            '-x', '0.0',
-            '-y', '-2.0', 
-            '-z', '1.0'
+            '-x', LaunchConfiguration('go2_world_init_x'),
+            '-y', LaunchConfiguration('go2_world_init_y'), 
+            '-z', LaunchConfiguration('go2_world_init_z'),
+            '-Y', LaunchConfiguration('go2_world_init_heading')
         ],
     )
     
@@ -278,17 +322,20 @@ def generate_launch_description():
                     'PX4_GZ_WORLD=default ' +
                     'PX4_GZ_STANDALONE=1 ' +
                     'PX4_SIM_SPEED_FACTOR=1.0 ' +
-                    'PX4_PARAM_SYS_LOGGER=1 ' +               # Reduce logging verbosity
-                    'PX4_PARAM_SENS_IMU_MODE=0 ' +            # Disable strict IMU validation
-                    './build/px4_sitl_default/bin/px4 -i 1 2>/dev/null'  # Suppress stderr
+                    'PX4_PARAM_SYS_LOGGER=0 ' +               # Disable verbose logging
+                    'PX4_PARAM_SENS_IMU_MODE=1 ' +            # Enable proper IMU mode
+                    'PX4_PARAM_SYS_HAS_GPS=1 ' +              # Enable GPS
+                    'PX4_PARAM_EKF2_AID_MASK=1 ' +            # Enable GPS aiding
+                    'PX4_PARAM_EKF2_HGT_MODE=0 ' +            # Barometric height mode
+                    './build/px4_sitl_default/bin/px4 -i 1'
                 ],
                 output='screen',
             ),
             
-            # 3.2: micro-XRCE-DDS Agent (port 8888)
+            # 3.2: micro-XRCE-DDS Agent (port 8888) with reduced verbosity
             ExecuteProcess(
                 cmd=[
-                    'MicroXRCEAgent', 'udp4', '-p', '8888'
+                    'MicroXRCEAgent', 'udp4', '-p', '8888', '-v0'
                 ],
                 output='screen',
             ),
@@ -323,10 +370,32 @@ def generate_launch_description():
         ]
     )
     
+    # Essential TF Transforms (started early for proper frame tree)
+    essential_tf_transforms = TimerAction(
+        period=2.0,  # Start early for frame setup
+        actions=[
+            # Map->odom transform (essential for navigation)
+            Node(
+                package='tf2_ros',
+                name='map_to_odom_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom'],
+            ),
+            
+            # Odom to odom_ned (ENU to NED conversion)
+            Node(
+                package='tf2_ros',
+                name='odom_to_odom_ned_tf_node',
+                executable='static_transform_publisher',
+                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'odom', 'odom_ned'],
+            ),
+        ]
+    )
+    
     # Drone Static TF Transforms (following original pattern)
     # These handle coordinate frame conversions (ENU ↔ NED, map ↔ odom)
     drone_tf_transforms = TimerAction(
-        period=65.0,  # 5 seconds after drone spawn
+        period=7.0,  # 2 seconds after drone spawn
         actions=[
             # Static TF map/world -> local_pose_ENU
             Node(
@@ -374,7 +443,7 @@ def generate_launch_description():
     
     # Drone ROS-Gazebo Bridge for Sensors (following original pattern)
     drone_sensor_bridge = TimerAction(
-        period=62.0,  # 2 seconds after drone spawn  
+        period=8.0,  # 3 seconds after drone spawn  
         actions=[
             Node(
                 package='ros_gz_bridge',
@@ -420,13 +489,27 @@ def generate_launch_description():
     
     # Drone Status Check
     drone_status_check = TimerAction(
-        period=75.0,  # Check status after all drone components should be loaded
+        period=15.0,  # Check status after all drone components should be loaded
         actions=[
             ExecuteProcess(
                 cmd=["bash", "-c", "echo 'Drone Status Check:' && ros2 topic list | grep drone && echo 'MAVROS Topics:' && ros2 topic list | grep mavros"],
                 output='screen',
             )
         ]
+    )
+
+    # ============================================================================
+    # STEP 4: VISUALIZATION (RVIZ)
+    # ============================================================================
+    
+    # Combined RViz for both robots (using Go2's RViz config as base)
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='sar_system_rviz',
+        arguments=['-d', os.path.join(unitree_go2_sim, "rviz/rviz.rviz")],
+        condition=IfCondition(LaunchConfiguration("rviz")),
+        parameters=[{"use_sim_time": LaunchConfiguration("use_sim_time")}]
     )
 
     # ============================================================================
@@ -437,6 +520,12 @@ def generate_launch_description():
         # Launch arguments
         declare_use_sim_time,
         declare_gui,
+        declare_rviz,
+        declare_go2_robot_name,
+        declare_go2_world_init_x,
+        declare_go2_world_init_y,
+        declare_go2_world_init_z,
+        declare_go2_world_init_heading,
         
         # Environment setup
         set_gazebo_resource_path,
@@ -444,10 +533,13 @@ def generate_launch_description():
         # Step 1: Single Gazebo world
         gz_sim,
         
-        # Step 1.5: ROS-Gazebo bridge (CRITICAL for clock sync)
+        # Step 1.5: ROS-Gazebo bridge (CRITICAL for clock sync and both robots)
         gazebo_bridge,
         
-        # Step 2: Go2 Robot (immediate spawn) - minimal namespace approach
+        # Essential TF transforms (early setup)
+        essential_tf_transforms,
+        
+        # Step 2: Go2 Robot (immediate spawn) - with full functionality
         go2_robot_state_publisher,
         go2_spawn_entity,
         go2_quadruped_controller,
@@ -458,9 +550,12 @@ def generate_launch_description():
         go2_base_to_footprint_ekf,
         go2_footprint_to_odom_ekf,
         
-        # Step 3: Drone (5-second delayed spawn) - following original pattern
+        # Step 3: Drone (5-second delayed spawn) - with full functionality
         drone_delayed_spawn,
         drone_tf_transforms,
         drone_sensor_bridge,
         drone_status_check,
+        
+        # Step 4: Visualization
+        rviz_node,
     ])
