@@ -225,7 +225,7 @@ def generate_launch_description():
         ]
     )
     
-    # Go2 CHAMP Quadruped Controller (minimal namespace - only for cmd_vel)
+    # Go2 CHAMP Quadruped Controller 
     go2_quadruped_controller = Node(
         package="champ_base",
         executable="quadruped_controller_node",
@@ -264,7 +264,7 @@ def generate_launch_description():
         ],
     )
     
-    # Go2 ROS2 Control Spawners (GLOBAL namespace - following original pattern)
+    # Go2 ROS2 Control Spawners 
     go2_controller_spawner_js = TimerAction(
         period=12.0,
         actions=[
@@ -297,7 +297,7 @@ def generate_launch_description():
         ]
     )
     
-    # Go2 EKF Localization Nodes (with go2 namespace for odom topics)
+    # Go2 EKF Localization Nodes 
     go2_base_to_footprint_ekf = Node(
         package="robot_localization",
         executable="ekf_node",
@@ -376,17 +376,7 @@ def generate_launch_description():
                     'PX4_GZ_WORLD=default ' +
                     'PX4_GZ_STANDALONE=0 ' +                  # CRITICAL FIX: Enable Gazebo coupling
                     'PX4_SIM_SPEED_FACTOR=1.0 ' +
-                    'PX4_PARAM_SYS_LOGGER=0 ' +               # Disable verbose logging
-                    'PX4_PARAM_SENS_IMU_MODE=1 ' +            # Enable proper IMU mode
-                    'PX4_PARAM_SYS_HAS_GPS=1 ' +              # Enable GPS
-                    'PX4_PARAM_EKF2_AID_MASK=1 ' +            # Enable GPS aiding
-                    'PX4_PARAM_EKF2_HGT_MODE=0 ' +            # Barometric height mode
-                    'PX4_PARAM_UXRCE_DDS_CFG=0 ' +            # Fix missing DDS configuration parameter
-                    'PX4_PARAM_SIM_GZ_EN=1 ' +                # Enable Gazebo simulation mode
-                    'PX4_PARAM_SENS_IMU_TEMP=20.0 ' +         # Set stable IMU temperature
-                    'PX4_PARAM_SYS_USE_IO=0 ' +               # Disable I/O for simulation
-                    'PX4_PARAM_UAVCAN_ENABLE=0 ' +            # Disable UAVCAN
-                    './build/px4_sitl_default/bin/px4 -i 1'
+                    './build/px4_sitl_default/bin/px4 -i 1 2>&1 | grep -v "ERROR.*vehicle_imu.*timestamp error"'
                 ],
                 output='screen',
             ),
@@ -441,7 +431,7 @@ def generate_launch_description():
                 executable='static_transform_publisher',
                 parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
                 arguments=[
-                    '--x', '0.0', '--y', '0.0', '--z', '1.0',
+                    '--x', '0.0', '--y', '0.0', '--z', '0.9',
                     '--roll', '0.0', '--pitch', '0', '--yaw', '0',
                     '--frame-id', 'map', '--child-frame-id', 'drone/odom'
                 ],
