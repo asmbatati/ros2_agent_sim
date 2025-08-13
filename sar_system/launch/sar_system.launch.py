@@ -100,7 +100,8 @@ def generate_launch_description():
         ]),
         launch_arguments={
             'gz_args': f'{world_file} -r',
-            'on_exit_shutdown': 'true'
+            'on_exit_shutdown': 'true',
+            'use_sim_time': LaunchConfiguration('use_sim_time')
         }.items()
     )
 
@@ -109,15 +110,22 @@ def generate_launch_description():
     # ============================================================================
     
     # Bridge ROS 2 topics to Gazebo Sim (essential for proper simulation)
-    gazebo_bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        name='gazebo_bridge',
-        output='screen',
-        parameters=[
-            {'use_sim_time': LaunchConfiguration("use_sim_time")},
-            {'qos_overrides./clock.publisher.durability': 'transient_local'}
-        ],
+    # CRITICAL: Start this with TimerAction to ensure Gazebo is ready first
+    gazebo_bridge = TimerAction(
+        period=2.0,  # 2-second delay to ensure Gazebo is fully started
+        actions=[
+            Node(
+                package='ros_gz_bridge',
+                executable='parameter_bridge',
+                name='gazebo_bridge',
+                output='screen',
+                parameters=[
+                    {'use_sim_time': LaunchConfiguration("use_sim_time")},
+                    {'qos_overrides./clock.publisher.durability': 'transient_local'},
+                    {'qos_overrides./clock.publisher.reliability': 'reliable'},
+                    {'qos_overrides./clock.publisher.history': 'keep_last'},
+                    {'qos_overrides./clock.publisher.depth': 1}
+                ],
         arguments=[
             # Gazebo to ROS - Essential for both robots
             '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
@@ -131,10 +139,12 @@ def generate_launch_description():
             '/odom@nav_msgs/msg/Odometry@gz.msgs.Odometry',
             '/rgb_image@sensor_msgs/msg/Image@gz.msgs.Image',
             
-            # ROS to Gazebo - Control topics
-            '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
-            '/joint_group_effort_controller/joint_trajectory@trajectory_msgs/msg/JointTrajectory]gz.msgs.JointTrajectory',
-        ],
+                # ROS to Gazebo - Control topics
+                '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+                '/joint_group_effort_controller/joint_trajectory@trajectory_msgs/msg/JointTrajectory]gz.msgs.JointTrajectory',
+            ],
+        )
+        ]
     )
 
     # ============================================================================
@@ -170,14 +180,19 @@ def generate_launch_description():
     
     # Go2 Spawn Entity in Gazebo (with delay for TF setup)
     go2_spawn_entity = TimerAction(
-        period=3.0,  # 3-second delay to ensure TF connections are ready
+        period=5.0,  # 5-second delay to ensure clock sync is ready
         actions=[
             # Go2 static frame connection (map -> go2/base_link)
             Node(
                 package='tf2_ros',
                 name='map_to_go2_base_link_tf_node',
                 executable='static_transform_publisher',
-                arguments=['0', '-2.0', '1.0', '0', '0', '0', 'map', 'go2/base_link'],
+                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+                arguments=[
+                    '--x', '0', '--y', '-2.0', '--z', '1.0',
+                    '--roll', '0', '--pitch', '0', '--yaw', '0',
+                    '--frame-id', 'map', '--child-frame-id', 'go2/base_link'
+                ],
             ),
             
             # Go2 URDF connection (go2/base_link -> base_link)
@@ -185,13 +200,19 @@ def generate_launch_description():
                 package='tf2_ros',
                 name='go2_base_link_to_urdf_base_link_tf_node',
                 executable='static_transform_publisher',
-                arguments=['0', '0', '0', '0', '0', '0', 'go2/base_link', 'base_link'],
+                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+                arguments=[
+                    '--x', '0', '--y', '0', '--z', '0',
+                    '--roll', '0', '--pitch', '0', '--yaw', '0',
+                    '--frame-id', 'go2/base_link', '--child-frame-id', 'base_link'
+                ],
             ),
             
             Node(
                 package='ros_gz_sim',
                 executable='create',
                 output='screen',
+                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
                 arguments=[
                     '-name', LaunchConfiguration('go2_robot_name'),
                     '-topic', 'robot_description',
@@ -245,7 +266,7 @@ def generate_launch_description():
     
     # Go2 ROS2 Control Spawners (GLOBAL namespace - following original pattern)
     go2_controller_spawner_js = TimerAction(
-        period=10.0,
+        period=12.0,
         actions=[
             Node(
                 package="controller_manager",
@@ -261,7 +282,7 @@ def generate_launch_description():
     )
 
     go2_controller_spawner_effort = TimerAction(
-        period=15.0,
+        period=17.0,
         actions=[
             Node(
                 package="controller_manager",
@@ -340,10 +361,10 @@ def generate_launch_description():
     # Following original drone_sim/launch/drone.launch.py structure
     
     drone_delayed_spawn = TimerAction(
-        period=5.0,  # 5-second delay as requested
+        period=6.0,  # 6-second delay - after clock validation is complete
         actions=[
             
-            # 3.1: PX4 SITL Process
+            # 3.1: PX4 SITL Process - FIXED for Gazebo Clock Sync
             ExecuteProcess(
                 cmd=[
                     'bash', '-c',
@@ -353,13 +374,18 @@ def generate_launch_description():
                     'PX4_UXRCE_DDS_NS=drone ' +
                     'PX4_GZ_MODEL_POSE="0,0,0.3" ' +
                     'PX4_GZ_WORLD=default ' +
-                    'PX4_GZ_STANDALONE=1 ' +
+                    'PX4_GZ_STANDALONE=0 ' +                  # CRITICAL FIX: Enable Gazebo coupling
                     'PX4_SIM_SPEED_FACTOR=1.0 ' +
                     'PX4_PARAM_SYS_LOGGER=0 ' +               # Disable verbose logging
                     'PX4_PARAM_SENS_IMU_MODE=1 ' +            # Enable proper IMU mode
                     'PX4_PARAM_SYS_HAS_GPS=1 ' +              # Enable GPS
                     'PX4_PARAM_EKF2_AID_MASK=1 ' +            # Enable GPS aiding
                     'PX4_PARAM_EKF2_HGT_MODE=0 ' +            # Barometric height mode
+                    'PX4_PARAM_UXRCE_DDS_CFG=0 ' +            # Fix missing DDS configuration parameter
+                    'PX4_PARAM_SIM_GZ_EN=1 ' +                # Enable Gazebo simulation mode
+                    'PX4_PARAM_SENS_IMU_TEMP=20.0 ' +         # Set stable IMU temperature
+                    'PX4_PARAM_SYS_USE_IO=0 ' +               # Disable I/O for simulation
+                    'PX4_PARAM_UAVCAN_ENABLE=0 ' +            # Disable UAVCAN
                     './build/px4_sitl_default/bin/px4 -i 1'
                 ],
                 output='screen',
@@ -371,6 +397,7 @@ def generate_launch_description():
                     'MicroXRCEAgent', 'udp4', '-p', '8888', '-v0'
                 ],
                 output='screen',
+                additional_env={'ROS_DOMAIN_ID': '0'},
             ),
             
             # 3.3: MAVROS with Drone Configuration  
@@ -397,7 +424,7 @@ def generate_launch_description():
                     'base_link_frame': 'drone/base_link',
                     'odom_frame': 'drone/odom',
                     'map_frame': 'map',
-                    'use_sim_time': 'True'
+                    'use_sim_time': LaunchConfiguration('use_sim_time')
                 }.items()
             ),
         ]
@@ -405,14 +432,19 @@ def generate_launch_description():
         
     # Drone Static TF Transforms (EXACT copy from corrected drone_sar_system.launch.py)
     drone_tf_transforms = TimerAction(
-        period=5.0,  # Start after Go2 TFs are established
+        period=8.0,  # Start after PX4 is synchronized with Gazebo clock
         actions=[
             # Static TF map/world -> local_pose_ENU (line 98-103 from original)
             Node(
                 package='tf2_ros',
                 name='map2px4_drone_tf_node',
                 executable='static_transform_publisher',
-                arguments=['0.0', '0.0', '0.1', '0.0', '0', '0', 'map', 'drone/odom'],
+                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+                arguments=[
+                    '--x', '0.0', '--y', '0.0', '--z', '0.1',
+                    '--roll', '0.0', '--pitch', '0', '--yaw', '0',
+                    '--frame-id', 'map', '--child-frame-id', 'drone/odom'
+                ],
             ),
             
             # Static TF base_link -> Gimbal_Camera (line 112-117 from original)
@@ -420,7 +452,12 @@ def generate_launch_description():
                 package='tf2_ros',
                 name='drone_base2gimbal_camera_tf_node',
                 executable='static_transform_publisher',
-                arguments=['0.1', '0', '0.13', '1.5708', '0', '1.5708', 'drone/base_link', 'drone/gimbal_camera'],
+                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+                arguments=[
+                    '--x', '0.1', '--y', '0', '--z', '0.13',
+                    '--roll', '1.5708', '--pitch', '0', '--yaw', '1.5708',
+                    '--frame-id', 'drone/base_link', '--child-frame-id', 'drone/gimbal_camera'
+                ],
             ),
             
             # Static TF base_link -> Lidar (line 126-131 from original)
@@ -428,7 +465,12 @@ def generate_launch_description():
                 package='tf2_ros',
                 name='drone_base2lidar_tf_node',
                 executable='static_transform_publisher',
-                arguments=['0', '0', '0.295', '0', '0', '0', 'drone/base_link', 'x500_lidar_camera_1/lidar_link/gpu_lidar'],
+                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+                arguments=[
+                    '--x', '0', '--y', '0', '--z', '0.295',
+                    '--roll', '0', '--pitch', '0', '--yaw', '0',
+                    '--frame-id', 'drone/base_link', '--child-frame-id', 'x500_lidar_camera_1/lidar_link/gpu_lidar'
+                ],
             ),
             
             # Base link to base_link_frd (line 142-147 from original)
@@ -436,7 +478,12 @@ def generate_launch_description():
                 package='tf2_ros',
                 name='base_link_to_frd_tf_node',
                 executable='static_transform_publisher',
-                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'drone/base_link', 'base_link_frd'],
+                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+                arguments=[
+                    '--x', '0', '--y', '0', '--z', '0',
+                    '--roll', '1.5708', '--pitch', '0', '--yaw', '3.1415',
+                    '--frame-id', 'drone/base_link', '--child-frame-id', 'base_link_frd'
+                ],
             ),
             
             # Connect map to odom (line 150-155 from original)
@@ -444,7 +491,12 @@ def generate_launch_description():
                 package='tf2_ros',
                 name='map_to_odom_tf_node',
                 executable='static_transform_publisher',
-                arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom'],
+                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+                arguments=[
+                    '--x', '0', '--y', '0', '--z', '0',
+                    '--roll', '0', '--pitch', '0', '--yaw', '0',
+                    '--frame-id', 'map', '--child-frame-id', 'odom'
+                ],
             ),
             
             # Connect odom to odom_ned (line 158-163 from original)
@@ -452,19 +504,28 @@ def generate_launch_description():
                 package='tf2_ros',
                 name='odom_to_odom_ned_tf_node',
                 executable='static_transform_publisher',
-                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'odom', 'odom_ned'],
+                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
+                arguments=[
+                    '--x', '0', '--y', '0', '--z', '0',
+                    '--roll', '1.5708', '--pitch', '0', '--yaw', '3.1415',
+                    '--frame-id', 'odom', '--child-frame-id', 'odom_ned'
+                ],
             ),
         ]
     )
     
     # Drone ROS-Gazebo Bridge for Sensors (following original pattern)
     drone_sensor_bridge = TimerAction(
-        period=8.0,  # 3 seconds after drone spawn  
+        period=10.0,  # After PX4 and TF transforms are synchronized  
         actions=[
             Node(
                 package='ros_gz_bridge',
                 name='drone_sensor_bridge',
                 executable='parameter_bridge',
+                parameters=[
+                    {'use_sim_time': LaunchConfiguration('use_sim_time')},
+                    {'qos_overrides./clock.publisher.durability': 'transient_local'}
+                ],
                 arguments=[
                     # Camera data
                     '/world/default/model/x500_lidar_camera_1/link/pitch_link/sensor/camera/image@sensor_msgs/msg/Image[gz.msgs.Image',
@@ -505,7 +566,7 @@ def generate_launch_description():
     
     # Drone Status Check
     drone_status_check = TimerAction(
-        period=15.0,  # Check status after all drone components should be loaded
+        period=12.0,  # Check status after all drone components should be loaded
         actions=[
             ExecuteProcess(
                 cmd=["bash", "-c", "echo 'Drone Status Check:' && ros2 topic list | grep drone && echo 'MAVROS Topics:' && ros2 topic list | grep mavros"],
@@ -533,6 +594,7 @@ def generate_launch_description():
     # RETURN LAUNCH DESCRIPTION
     # ============================================================================
     
+
     return LaunchDescription([
         # Launch arguments
         declare_use_sim_time,
@@ -547,11 +609,23 @@ def generate_launch_description():
         # Environment setup
         set_gazebo_resource_path,
         
+        
         # Step 1: Single Gazebo world
         gz_sim,
         
         # Step 1.5: ROS-Gazebo bridge (CRITICAL for clock sync and both robots)
         gazebo_bridge,
+        
+        # Step 1.7: Clock Validation - Ensure clock sync before other nodes
+        TimerAction(
+            period=4.0,  # Start after gazebo bridge is established
+            actions=[
+                ExecuteProcess(
+                    cmd=['bash', '-c', 'echo "=== CLOCK SYNC VALIDATION ===" && ros2 topic echo /clock --once && echo "Clock sync established - proceeding with node launches"'],
+                    output='screen',
+                )
+            ]
+        ),
                 
         # Step 2: Go2 Robot (immediate spawn) - with full functionality
         go2_robot_state_publisher,
