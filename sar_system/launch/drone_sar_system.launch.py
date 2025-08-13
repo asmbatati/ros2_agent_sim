@@ -143,20 +143,12 @@ def generate_launch_description():
                 arguments=['0', '0', '0', '0', '0', '0', 'drone/odom', 'drone/base_link'],
             ),
             
-            # Connect drone/base_link to base_link (line 134-139 from original)
-            Node(
-                package='tf2_ros',
-                name='drone_drone_base_to_base_link_tf_node', 
-                executable='static_transform_publisher',
-                arguments=['0', '0', '0', '0', '0', '0', 'drone/base_link', 'base_link'],
-            ),
-            
             # Base link to base_link_frd (line 142-147 from original)
             Node(
                 package='tf2_ros',
                 name='base_link_to_frd_tf_node',
                 executable='static_transform_publisher',
-                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'base_link', 'base_link_frd'],
+                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'drone/base_link', 'base_link_frd'],
             ),
             
             # Connect map to odom (line 150-155 from original)
