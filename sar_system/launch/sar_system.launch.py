@@ -441,7 +441,7 @@ def generate_launch_description():
                 executable='static_transform_publisher',
                 parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
                 arguments=[
-                    '--x', '0.0', '--y', '0.0', '--z', '0.1',
+                    '--x', '0.0', '--y', '0.0', '--z', '1.0',
                     '--roll', '0.0', '--pitch', '0', '--yaw', '0',
                     '--frame-id', 'map', '--child-frame-id', 'drone/odom'
                 ],
