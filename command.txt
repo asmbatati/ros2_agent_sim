@@ -1,0 +1,50 @@
+I am using ros2 jazzy with gazebo harmonic, and I have a (ros2_ws) with a directory (src/unitree_go2_ros2). 
+
+The src/unitree_go2_ros2 directory is a simulation for Unitree go2 robot with (5) packages, and they are:
+
+* champ
+* champ_base
+* champ_msgs 
+* unitree_go2_description
+* unitree_go2_sim
+
+To Run the go2 simulation system, we run (ros2 launch unitree_go2_sim unitree_go2_launch.py). 
+
+The (5) packages are used as following:
+
+- unitree_go2_description -> Contains the xacro file for the robot (go2)
+- unitree_go2_sim -> Contains the launch file to run the system, and the config file - Core controllers and state estimation for CHAMP (You Must Check it)
+- champ & champ_base -> Contains the controller part of the system
+- champ_msgs -> cont the messages
+
+So, the catch here is that the (unitree_go2_launch.py) launch file does not support the (namespace), where I want to add a (namespace) to the launch file to support the mutli-robot sim (Go2). 
+
+To acheive that, we need to modify the entire system, and the system is complicated, so you have to be cearful with that. 
+
+See all the changes that must be done to achive that.  
+
+the task is that making the unitree system work with (namespace)
+
+Help me with this task, and 
+
+YOU MUST FOLLOW THESE:  
+- Go through the entire (src/unitree_go2_ros2) directory files to make sure that the changes are done properlly, and understand 100% how the system work before doing anything. 
+- Everytime you modify the codes, and want to test the launch file, you need to build the entire workspace (colcon build), then source it (source install/setup.bash). 
+- Don't test the system, I will tell you if I want you test it, I will test it by myself
+- Make sure that the controller_manager is  subscribing to the correct topic (the one with namespace).
+- Check these two node quadruped_controller_node - state_estimation_node that have namespace as well.
+- Make sure that you check the (hip) & (upper_leg) in the xacro to ensure the namespace
+- Check the (links_config.yaml) file as well
+- Check ros2_control plugin namespace configuration
+- Don't assume anything, tell me what you want to know 
+- Check the sensores xacro file for the namespace
+- first run the system with one robot to make sure that the namespace is working 
+- Do some research and search for your work that you are sure 100% you gave me the correct solutions 
+- Check these files links.yaml and joints.yaml
+- Make sure that you are aware of my setup, to help me with the correct answers 
+- Double check your workm before doing any changes in the code.
+- Take your time to think and analyis.
+- Make sure that we kill all the ros2 and gz processes before reruning the test of the system (launch file) 
+
+========================================
+│ > read the instructions in ros2_ws/src/ros2_agent_sim/command.txt, and start the work. If it's not clear ask me                                                                                                                     │
