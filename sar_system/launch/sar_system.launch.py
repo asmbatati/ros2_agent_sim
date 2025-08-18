@@ -182,29 +182,29 @@ def generate_launch_description():
     go2_spawn_entity = TimerAction(
         period=5.0,  # 5-second delay to ensure clock sync is ready
         actions=[
-            # Go2 static frame connection (map -> go2/base_link)
+            # Go2 static frame connection (map -> odom)
             Node(
                 package='tf2_ros',
-                name='map_to_go2_base_link_tf_node',
+                name='map_to_odom_tf_node',
                 executable='static_transform_publisher',
                 parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
                 arguments=[
                     '--x', '0', '--y', '-2.0', '--z', '1.0',
                     '--roll', '0', '--pitch', '0', '--yaw', '0',
-                    '--frame-id', 'map', '--child-frame-id', 'go2/base_link'
+                    '--frame-id', 'map', '--child-frame-id', 'odom'
                 ],
             ),
             
-            # Go2 URDF connection (go2/base_link -> base_link)
+            # Go2 URDF connection (base_footprint -> base_link)
             Node(
                 package='tf2_ros',
-                name='go2_base_link_to_urdf_base_link_tf_node',
+                name='base_footprint_to_base_link_tf_node',
                 executable='static_transform_publisher',
                 parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
                 arguments=[
                     '--x', '0', '--y', '0', '--z', '0',
                     '--roll', '0', '--pitch', '0', '--yaw', '0',
-                    '--frame-id', 'go2/base_link', '--child-frame-id', 'base_link'
+                    '--frame-id', 'base_footprint', '--child-frame-id', 'base_link'
                 ],
             ),
             
@@ -246,6 +246,7 @@ def generate_launch_description():
         ],
         remappings=[
             ("/cmd_vel/smooth", "/go2/cmd_vel"),
+            ("/odom", "/odom/raw"),
         ],
     )
 
@@ -311,7 +312,7 @@ def generate_launch_description():
                 "config", "ekf", "base_to_footprint.yaml",
             ),
         ],
-        remappings=[("odometry/filtered", "/go2/odom/local")],
+        remappings=[("odometry/filtered", "odom/local")],
     )
 
     go2_footprint_to_odom_ekf = Node(
@@ -327,7 +328,7 @@ def generate_launch_description():
                 "config", "ekf", "footprint_to_odom.yaml",
             ),
         ],
-        remappings=[("odometry/filtered", "/go2/odom")],
+        remappings=[("odometry/filtered", "odom")],
     )
     
     # Go2 Controller Status Check 
@@ -420,86 +421,48 @@ def generate_launch_description():
         ]
     )
         
-    # Drone Static TF Transforms (EXACT copy from corrected drone_sar_system.launch.py)
+    # Drone Static TF Transforms (matching original drone.launch.py)
     drone_tf_transforms = TimerAction(
         period=8.0,  # Start after PX4 is synchronized with Gazebo clock
         actions=[
-            # Static TF map/world -> local_pose_ENU (line 98-103 from original)
+            # Static TF map/world -> local_pose_ENU (matching original)
             Node(
                 package='tf2_ros',
                 name='map2px4_drone_tf_node',
                 executable='static_transform_publisher',
-                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
-                arguments=[
-                    '--x', '0.0', '--y', '0.0', '--z', '0.9',
-                    '--roll', '0.0', '--pitch', '0', '--yaw', '0',
-                    '--frame-id', 'map', '--child-frame-id', 'drone/odom'
-                ],
+                arguments=['0.0', '0.0', '0.1', '0.0', '0', '0', 'map', 'drone/odom'],
             ),
             
-            # Static TF base_link -> Gimbal_Camera (line 112-117 from original)
+            # Static TF base_link -> Gimbal_Camera (matching original)
             Node(
                 package='tf2_ros',
                 name='drone_base2gimbal_camera_tf_node',
                 executable='static_transform_publisher',
-                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
-                arguments=[
-                    '--x', '0.1', '--y', '0', '--z', '0.13',
-                    '--roll', '1.5708', '--pitch', '0', '--yaw', '1.5708',
-                    '--frame-id', 'drone/base_link', '--child-frame-id', 'drone/gimbal_camera'
-                ],
+                arguments=['0.1', '0', '0.13', '1.5708', '0', '1.5708', 'drone/base_link', 'drone/gimbal_camera'],
             ),
             
-            # Static TF base_link -> Lidar (line 126-131 from original)
+            # Static TF base_link -> Lidar (matching original)
             Node(
                 package='tf2_ros',
                 name='drone_base2lidar_tf_node',
                 executable='static_transform_publisher',
-                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
-                arguments=[
-                    '--x', '0', '--y', '0', '--z', '0.295',
-                    '--roll', '0', '--pitch', '0', '--yaw', '0',
-                    '--frame-id', 'drone/base_link', '--child-frame-id', 'x500_lidar_camera_1/lidar_link/gpu_lidar'
-                ],
+                arguments=['0', '0', '0.295', '0', '0', '0', 'drone/base_link', 'x500_lidar_camera_1/lidar_link/gpu_lidar'],
             ),
             
-            # Base link to base_link_frd (line 142-147 from original)
+            # Base link to base_link_frd (ENU to NED conversion - matching original)
             Node(
                 package='tf2_ros',
                 name='base_link_to_frd_tf_node',
                 executable='static_transform_publisher',
-                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
-                arguments=[
-                    '--x', '0', '--y', '0', '--z', '0',
-                    '--roll', '1.5708', '--pitch', '0', '--yaw', '3.1415',
-                    '--frame-id', 'drone/base_link', '--child-frame-id', 'base_link_frd'
-                ],
+                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'drone/base_link', 'drone/base_link_frd'],
             ),
             
-            # Connect map to odom (line 150-155 from original)
+            # Connect drone/odom to drone/odom_ned (PX4 NED frame - matching original)
             Node(
                 package='tf2_ros',
-                name='map_to_odom_tf_node',
+                name='drone_odom_to_ned_tf_node',
                 executable='static_transform_publisher',
-                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
-                arguments=[
-                    '--x', '0', '--y', '0', '--z', '0',
-                    '--roll', '0', '--pitch', '0', '--yaw', '0',
-                    '--frame-id', 'map', '--child-frame-id', 'odom'
-                ],
-            ),
-            
-            # Connect odom to odom_ned (line 158-163 from original)
-            Node(
-                package='tf2_ros',
-                name='odom_to_odom_ned_tf_node',
-                executable='static_transform_publisher',
-                parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}],
-                arguments=[
-                    '--x', '0', '--y', '0', '--z', '0',
-                    '--roll', '1.5708', '--pitch', '0', '--yaw', '3.1415',
-                    '--frame-id', 'odom', '--child-frame-id', 'odom_ned'
-                ],
+                arguments=['0', '0', '0', '1.5708', '0', '3.1415', 'drone/odom', 'drone/odom_ned'],
             ),
         ]
     )
