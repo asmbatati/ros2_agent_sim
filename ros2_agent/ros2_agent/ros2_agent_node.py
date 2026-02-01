@@ -115,16 +115,48 @@ class Ros2AgentNode(Node):
         # Initialize LLM
         local_llm = initialize_llm(self.llm_model)
         
-        # Create tools - use positional arguments to ensure compatibility
-        # Pass all the topics/services through the node instead
-        self.state_topic = self.state_topic  # Store for robot tools to access
-        self.arming_service = self.arming_service  # Store for robot tools to access
-        self.mode_service = self.mode_service  # Store for robot tools to access
-        self.setpoint_topic = self.setpoint_topic  # Store for robot tools to access
+        # Helper to discover robots
+        def discover_robots():
+            self.get_logger().info("Discovering robots...")
+            topics = self.get_topic_names_and_types()
+            
+            drones = set()
+            go2s = set()
+            
+            for name, types in topics:
+                parts = name.split('/')
+                if len(parts) >= 2:
+                    root = parts[1] # e.g. 'go2_1', 'drone_1'
+                    if 'drone' in root:
+                        drones.add(f'/{root}')
+                    elif 'go2' in root:
+                        go2s.add(f'/{root}')
+            
+            # Fallback if no specific namespace found (single robot case)
+            if not drones and not go2s:
+                # Check for standard topics
+                for name, types in topics:
+                    if 'mavros' in name:
+                         drones.add('/drone')
+                    if 'go2' in name or '/cmd_vel' == name:
+                         go2s.add('/go2')
+                         
+            return list(drones), list(go2s)
+
+        current_drones, current_go2s = discover_robots()
+        self.get_logger().info(f"Discovered: Drones={current_drones}, Go2s={current_go2s}")
+
+        tools = []
         
-        drone_tools = DroneTools(self)  # Only pass the node itself
-        unitree_tools = UnitreeTools(self)  # Only pass the node itself
-        tools = drone_tools.create_tools() + unitree_tools.create_tools()
+        # Instantiate Drone Tools
+        for ns in current_drones:
+            dt = DroneTools(self, namespace=ns)
+            tools.extend(dt.create_tools())
+            
+        # Instantiate Go2 Tools
+        for ns in current_go2s:
+            ut = UnitreeTools(self, namespace=ns)
+            tools.extend(ut.create_tools())
             
         # Create prompts
         prompts = system_prompts()
@@ -137,9 +169,7 @@ class Ros2AgentNode(Node):
             prompts=prompts
         )
         
-        drone_count = len(drone_tools.create_tools())
-        unitree_count = len(unitree_tools.create_tools())
-        self.get_logger().info(f"ROSA Agent initialized with {len(tools)} tools ({drone_count} drone + {unitree_count} Go2)")
+        self.get_logger().info(f"ROSA Agent initialized with {len(tools)} tools ({len(current_drones)} drone + {len(current_go2s)} Go2)")
         
         time.sleep(4)
 

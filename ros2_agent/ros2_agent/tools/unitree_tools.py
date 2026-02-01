@@ -17,24 +17,30 @@ import math
 class UnitreeTools:   
     """Collection of tools for Unitree Go2 quadruped robot control."""
     
-    def __init__(self, node):
+    def __init__(self, node, namespace='/go2'):
         self.node = node
+        self.namespace = namespace.rstrip('/')
         self._setup_go2_subscribers()
         
     def _setup_go2_subscribers(self):
         """Setup subscribers for Go2 robot data."""
         # Initialize Go2 pose tracking
-        self.node.current_go2_pose = Odometry()
-        self.node.go2_navigation_active = False
+        setattr(self.node, f'current_go2_pose_{self.namespace}', Odometry())
+        setattr(self.node, f'go2_nav_active_{self.namespace}', False)
         
         # Create odometry subscriber
-        self.node.go2_odom_subscriber = self.node.create_subscription(
-            Odometry,
-            '/odom',
-            self._go2_odom_callback,
-            10
-        )
-        self.node.get_logger().info("Created Go2 odometry subscriber")
+        sub_attr = f'go2_odom_sub_{self.namespace}'
+        if not hasattr(self.node, sub_attr):
+            def odom_callback(msg):
+                setattr(self.node, f'current_go2_pose_{self.namespace}', msg)
+                
+            setattr(self.node, sub_attr, self.node.create_subscription(
+                Odometry,
+                f'{self.namespace}/odom',
+                odom_callback,
+                10
+            ))
+            self.node.get_logger().info(f"Created Go2 odometry subscriber for {self.namespace}")
         
         # Add helper method to node
         def get_go2_yaw():
@@ -54,8 +60,8 @@ class UnitreeTools:
         self.node.get_go2_yaw = get_go2_yaw
         
     def _go2_odom_callback(self, msg):
-        """Callback for Go2 odometry updates."""
-        self.node.current_go2_pose = msg
+        """Callback for Go2 odometry updates (maintained for compatibility)."""
+        setattr(self.node, f'current_go2_pose_{self.namespace}', msg)
         
     def create_tools(self):
         """Create and return all Unitree Go2 tools."""
@@ -90,9 +96,10 @@ class UnitreeTools:
                 return "Error: Speed must be between 0.1 and 1.0 m/s"
             
             # Get starting position and orientation
-            start_x = node.current_go2_pose.pose.pose.position.x
-            start_y = node.current_go2_pose.pose.pose.position.y
-            start_yaw = node.get_go2_yaw()
+            current_pose = getattr(node, f'current_go2_pose_{self.namespace}')
+            start_x = current_pose.pose.pose.position.x
+            start_y = current_pose.pose.pose.position.y
+            start_yaw = getattr(node, f'get_go2_yaw_{self.namespace}')()
             
             # Calculate target position based on starting heading
             target_x = start_x + distance * math.cos(start_yaw)
@@ -102,10 +109,12 @@ class UnitreeTools:
             node.get_logger().info(f"Initial heading: {math.degrees(start_yaw):.1f}°")
             
             # Create cmd_vel publisher if it doesn't exist
-            if not hasattr(node, 'go2_cmd_vel_pub'):
-                node.go2_cmd_vel_pub = node.create_publisher(Twist, '/go2/cmd_vel', 10) #SAR System 
-                # node.go2_cmd_vel_pub = node.create_publisher(Twist, '/cmd_vel', 10) 
-                node.get_logger().info("Created Go2 cmd_vel publisher")
+            pub_attr = f'go2_cmd_vel_pub_{self.namespace}'
+            if not hasattr(node, pub_attr):
+                setattr(node, pub_attr, node.create_publisher(Twist, f'{self.namespace}/cmd_vel', 10))
+                node.get_logger().info(f"Created cmd_vel publisher for {self.namespace}")
+            
+            cmd_vel_pub = getattr(node, pub_attr)
             
             # Straight-line movement with feedback control
             def straight_line_movement():
@@ -115,9 +124,10 @@ class UnitreeTools:
                 
                 while node.running:
                     # Get current position
-                    curr_x = node.current_go2_pose.pose.pose.position.x
-                    curr_y = node.current_go2_pose.pose.pose.position.y
-                    curr_yaw = node.get_go2_yaw()
+                    curr_pose = getattr(node, f'current_go2_pose_{self.namespace}')
+                    curr_x = curr_pose.pose.pose.position.x
+                    curr_y = curr_pose.pose.pose.position.y
+                    curr_yaw = getattr(node, f'get_go2_yaw_{self.namespace}')()
                     
                     # Calculate distance traveled and remaining
                     dx_traveled = curr_x - start_x
@@ -130,11 +140,11 @@ class UnitreeTools:
                         # Stop the robot
                         stop_cmd = Twist()
                         for _ in range(5):
-                            node.go2_cmd_vel_pub.publish(stop_cmd)
+                            cmd_vel_pub.publish(stop_cmd)
                             time.sleep(0.05)
                         
-                        final_x = node.current_go2_pose.pose.pose.position.x
-                        final_y = node.current_go2_pose.pose.pose.position.y
+                        final_x = getattr(node, f'current_go2_pose_{self.namespace}').pose.pose.position.x
+                        final_y = getattr(node, f'current_go2_pose_{self.namespace}').pose.pose.position.y
                         final_distance = math.sqrt((final_x - start_x)**2 + (final_y - start_y)**2)
                         
                         node.get_logger().info(f"Go2 straight-line movement completed!")
@@ -174,7 +184,7 @@ class UnitreeTools:
                     cmd.angular.z = max(-0.3, min(0.3, cmd.angular.z))
                     
                     # Publish command
-                    node.go2_cmd_vel_pub.publish(cmd)
+                    cmd_vel_pub.publish(cmd)
                     
                     # Log progress every 1 second
                     if time.time() - last_log_time > 1.0:
@@ -208,9 +218,10 @@ class UnitreeTools:
                 return "Error: Speed must be between 0.1 and 1.0 m/s"
             
             # Get current position
-            current_x = node.current_go2_pose.pose.pose.position.x
-            current_y = node.current_go2_pose.pose.pose.position.y
-            current_yaw = node.get_go2_yaw()
+            current_pose = getattr(node, f'current_go2_pose_{self.namespace}')
+            current_x = current_pose.pose.pose.position.x
+            current_y = current_pose.pose.pose.position.y
+            current_yaw = getattr(node, f'get_go2_yaw_{self.namespace}')()
             
             node.get_logger().info(f"Go2 moving from ({current_x:.2f}, {current_y:.2f}) to ({x:.2f}, {y:.2f})")
             
@@ -224,14 +235,17 @@ class UnitreeTools:
                 return f"Go2 is already at target position ({x:.2f}, {y:.2f})"
             
             # Create cmd_vel publisher if it doesn't exist
-            if not hasattr(node, 'go2_cmd_vel_pub'):
-                node.go2_cmd_vel_pub = node.create_publisher(Twist, '/cmd_vel', 10)
-                node.get_logger().info("Created Go2 cmd_vel publisher")
+            pub_attr = f'go2_cmd_vel_pub_{self.namespace}'
+            if not hasattr(node, pub_attr):
+                setattr(node, pub_attr, node.create_publisher(Twist, f'{self.namespace}/cmd_vel', 10))
+                node.get_logger().info(f"Created cmd_vel publisher for {self.namespace}")
+            
+            cmd_vel_pub = getattr(node, pub_attr)
             
             # Store target and start navigation
-            node.go2_target_x = x
-            node.go2_target_y = y
-            node.go2_navigation_active = True
+            setattr(node, f'go2_target_x_{self.namespace}', x)
+            setattr(node, f'go2_target_y_{self.namespace}', y)
+            setattr(node, f'go2_nav_active_{self.namespace}', True)
             
             # Start navigation thread with improved control
             def navigation_thread():
@@ -241,15 +255,18 @@ class UnitreeTools:
                 # Control variables
                 previous_yaw_error = 0.0
                 
-                while node.go2_navigation_active and node.running:
+                while getattr(node, f'go2_nav_active_{self.namespace}', False) and node.running:
                     # Get current position
-                    curr_x = node.current_go2_pose.pose.pose.position.x
-                    curr_y = node.current_go2_pose.pose.pose.position.y
-                    curr_yaw = node.get_go2_yaw()
+                    curr_pose = getattr(node, f'current_go2_pose_{self.namespace}')
+                    curr_x = curr_pose.pose.pose.position.x
+                    curr_y = curr_pose.pose.pose.position.y
+                    curr_yaw = getattr(node, f'get_go2_yaw_{self.namespace}')()
                     
                     # Calculate remaining distance
-                    dx = node.go2_target_x - curr_x
-                    dy = node.go2_target_y - curr_y
+                    target_x = getattr(node, f'go2_target_x_{self.namespace}')
+                    target_y = getattr(node, f'go2_target_y_{self.namespace}')
+                    dx = target_x - curr_x
+                    dy = target_y - curr_y
                     remaining_distance = math.sqrt(dx*dx + dy*dy)
                     
                     # Check if reached target
@@ -257,9 +274,9 @@ class UnitreeTools:
                         # Stop robot with multiple commands
                         stop_cmd = Twist()
                         for _ in range(5):
-                            node.go2_cmd_vel_pub.publish(stop_cmd)
+                            cmd_vel_pub.publish(stop_cmd)
                             time.sleep(0.05)
-                        node.go2_navigation_active = False
+                        setattr(node, f'go2_nav_active_{self.namespace}', False)
                         node.get_logger().info(f"Go2 reached target! Final distance: {remaining_distance:.2f}m")
                         break
                     
@@ -307,7 +324,7 @@ class UnitreeTools:
                             cmd.angular.z *= 0.5  # Reduce turning when moving fast
                     
                     # Publish command
-                    node.go2_cmd_vel_pub.publish(cmd)
+                    cmd_vel_pub.publish(cmd)
                     
                     # Update previous values for next iteration
                     previous_yaw_error = yaw_error
@@ -333,16 +350,18 @@ class UnitreeTools:
             
             try:
                 # Create publisher if it doesn't exist
-                if not hasattr(node, 'go2_cmd_vel_pub'):
-                    node.go2_cmd_vel_pub = node.create_publisher(Twist, '/cmd_vel', 10)
+                pub_attr = f'go2_cmd_vel_pub_{self.namespace}'
+                if not hasattr(node, pub_attr):
+                    setattr(node, pub_attr, node.create_publisher(Twist, f'{self.namespace}/cmd_vel', 10))
+                cmd_vel_pub = getattr(node, pub_attr)
                 
                 # Stop navigation
-                node.go2_navigation_active = False
+                setattr(node, f'go2_nav_active_{self.namespace}', False)
                 
                 # Send stop command multiple times for safety
                 stop_cmd = Twist()  # All zeros
                 for _ in range(5):
-                    node.go2_cmd_vel_pub.publish(stop_cmd)
+                    cmd_vel_pub.publish(stop_cmd)
                     time.sleep(0.01)
                 
                 return "✅ Go2 robot stopped!\n• All movement commands canceled\n• Navigation disabled\n• Robot is now stationary"
@@ -362,7 +381,7 @@ class UnitreeTools:
             
             try:
                 # Get current pose from odometry
-                current_pose = node.current_go2_pose
+                current_pose = getattr(node, f'current_go2_pose_{self.namespace}')
                 
                 # Extract position
                 x = current_pose.pose.pose.position.x
@@ -370,7 +389,7 @@ class UnitreeTools:
                 z = current_pose.pose.pose.position.z
                 
                 # Extract orientation and convert to yaw
-                yaw = node.get_go2_yaw()
+                yaw = getattr(node, f'get_go2_yaw_{self.namespace}')()
                 yaw_degrees = math.degrees(yaw)
                 
                 # Format response
@@ -407,53 +426,62 @@ class UnitreeTools:
                 node.get_logger().info("Starting Go2 camera feed...")
                 
                 # Initialize camera components if needed
-                if not hasattr(node, 'go2_camera_bridge'):
-                    node.go2_camera_bridge = CvBridge()
-                    node.go2_camera_active = False
-                    node.go2_latest_frame = None
+                bridge_attr = f'go2_camera_bridge_{self.namespace}'
+                active_attr = f'go2_camera_active_{self.namespace}'
+                latest_frame_attr = f'go2_latest_frame_{self.namespace}'
+                
+                if not hasattr(node, bridge_attr):
+                    setattr(node, bridge_attr, CvBridge())
+                    setattr(node, active_attr, False)
+                    setattr(node, latest_frame_attr, None)
                     
                 # Create camera subscriber if it doesn't exist
-                if not hasattr(node, 'go2_camera_subscriber'):
+                sub_attr = f'go2_camera_sub_{self.namespace}'
+                if not hasattr(node, sub_attr):
                     def go2_camera_callback(msg):
                         try:
                             # Convert ROS image to OpenCV
-                            cv_image = node.go2_camera_bridge.imgmsg_to_cv2(msg, "bgr8")
+                            bridge = getattr(node, bridge_attr)
+                            cv_image = bridge.imgmsg_to_cv2(msg, "bgr8")
                             # Resize for display
                             resized_image = cv2.resize(cv_image, (640, 480))
-                            node.go2_latest_frame = resized_image
+                            setattr(node, latest_frame_attr, resized_image)
                         except Exception as e:
                             node.get_logger().error(f"Go2 camera callback error: {str(e)}")
                     
-                    node.go2_camera_subscriber = node.create_subscription(
-                        Image, '/rgb_image', go2_camera_callback, 10)
-                    node.get_logger().info("Created Go2 camera subscriber")
+                    setattr(node, sub_attr, node.create_subscription(
+                        Image, f'{self.namespace}/rgb_image', go2_camera_callback, 10))
+                    node.get_logger().info(f"Created Go2 camera subscriber for {self.namespace}")
                 
                 # Start camera display thread
-                if not node.go2_camera_active:
-                    node.go2_camera_active = True
+                if not getattr(node, active_attr):
+                    setattr(node, active_attr, True)
                     
                     def go2_camera_display_thread():
-                        cv2.namedWindow("Go2 Camera Feed", cv2.WINDOW_NORMAL)
-                        cv2.resizeWindow("Go2 Camera Feed", 640, 480)
+                        window_name = f"Go2 Camera Feed ({self.namespace})"
+                        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+                        cv2.resizeWindow(window_name, 640, 480)
                         
-                        while node.go2_camera_active and node.running:
-                            if node.go2_latest_frame is not None:
+                        while getattr(node, active_attr) and node.running:
+                            frame = getattr(node, latest_frame_attr)
+                            if frame is not None:
                                 # Add timestamp overlay
-                                frame_with_overlay = node.go2_latest_frame.copy()
+                                frame_with_overlay = frame.copy()
                                 timestamp = time.strftime("%H:%M:%S")
                                 cv2.putText(frame_with_overlay, f"Go2 CAM {timestamp}", 
                                         (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
                                 
-                                cv2.imshow("Go2 Camera Feed", frame_with_overlay)
+                                cv2.imshow(window_name, frame_with_overlay)
                             
                             if cv2.waitKey(33) & 0xFF == ord('q'):
                                 break
                         
-                        cv2.destroyWindow("Go2 Camera Feed")
+                        cv2.destroyWindow(window_name)
                     
-                    node.go2_camera_thread = threading.Thread(target=go2_camera_display_thread)
-                    node.go2_camera_thread.daemon = True
-                    node.go2_camera_thread.start()
+                    thread = threading.Thread(target=go2_camera_display_thread)
+                    thread.daemon = True
+                    thread.start()
+                    setattr(node, f'go2_camera_thread_{self.namespace}', thread)
                     
                     return (
                         f"✅ Go2 Camera feed started!\n\n"
@@ -467,16 +495,20 @@ class UnitreeTools:
                     
             elif action.lower() == "stop":
                 node.get_logger().info("Stopping Go2 camera feed...")
+                active_attr = f'go2_camera_active_{self.namespace}'
                 
-                if hasattr(node, 'go2_camera_active') and node.go2_camera_active:
-                    node.go2_camera_active = False
+                if hasattr(node, active_attr) and getattr(node, active_attr):
+                    setattr(node, active_attr, False)
                     
                     # Wait for thread to finish
-                    if hasattr(node, 'go2_camera_thread') and node.go2_camera_thread.is_alive():
-                        node.go2_camera_thread.join(timeout=2.0)
+                    thread_attr = f'go2_camera_thread_{self.namespace}'
+                    if hasattr(node, thread_attr):
+                        thread = getattr(node, thread_attr)
+                        if thread.is_alive():
+                            thread.join(timeout=2.0)
                     
                     # Destroy OpenCV windows
-                    cv2.destroyWindow("Go2 Camera Feed")
+                    cv2.destroyWindow(f"Go2 Camera Feed ({self.namespace})")
                     
                     return (
                         f"✅ Go2 Camera feed stopped!\n\n"
@@ -503,9 +535,10 @@ class UnitreeTools:
                 str: Detailed diagnostic information about the movement
             """
             # Record starting position and heading
-            start_x = node.current_go2_pose.pose.pose.position.x
-            start_y = node.current_go2_pose.pose.pose.position.y
-            start_yaw = node.get_go2_yaw()
+            current_pose = getattr(node, f'current_go2_pose_{self.namespace}')
+            start_x = current_pose.pose.pose.position.x
+            start_y = current_pose.pose.pose.position.y
+            start_yaw = getattr(node, f'get_go2_yaw_{self.namespace}')()
             
             node.get_logger().info(f"=== GO2 STRAIGHT-LINE DIAGNOSTIC TEST ===")
             node.get_logger().info(f"Start position: ({start_x:.3f}, {start_y:.3f})")
@@ -513,8 +546,10 @@ class UnitreeTools:
             node.get_logger().info(f"Target distance: {distance}m at {speed}m/s")
             
             # Create cmd_vel publisher if needed
-            if not hasattr(node, 'go2_cmd_vel_pub'):
-                node.go2_cmd_vel_pub = node.create_publisher(Twist, '/cmd_vel', 10)
+            pub_attr = f'go2_cmd_vel_pub_{self.namespace}'
+            if not hasattr(node, pub_attr):
+                setattr(node, pub_attr, node.create_publisher(Twist, f'{self.namespace}/cmd_vel', 10))
+            cmd_vel_pub = getattr(node, pub_attr)
             
             def diagnostic_movement():
                 rate = node.create_rate(10)  # 10 Hz for detailed logging
@@ -525,9 +560,10 @@ class UnitreeTools:
                     current_time = time.time() - start_time
                     
                     # Record current state
-                    curr_x = node.current_go2_pose.pose.pose.position.x
-                    curr_y = node.current_go2_pose.pose.pose.position.y
-                    curr_yaw = node.get_go2_yaw()
+                    curr_pose = getattr(node, f'current_go2_pose_{self.namespace}')
+                    curr_x = curr_pose.pose.pose.position.x
+                    curr_y = curr_pose.pose.pose.position.y
+                    curr_yaw = getattr(node, f'get_go2_yaw_{self.namespace}')()
                     
                     # Calculate distance traveled
                     dx_traveled = curr_x - start_x
@@ -539,7 +575,7 @@ class UnitreeTools:
                         # Stop and record final position
                         stop_cmd = Twist()
                         for _ in range(3):
-                            node.go2_cmd_vel_pub.publish(stop_cmd)
+                            cmd_vel_pub.publish(stop_cmd)
                             time.sleep(0.1)
                         
                         # Calculate deviation from straight line
@@ -577,7 +613,7 @@ class UnitreeTools:
                                              f"h_err={math.degrees(heading_error):.1f}°")
                         last_log_time = time.time()
                     
-                    node.go2_cmd_vel_pub.publish(cmd)
+                    cmd_vel_pub.publish(cmd)
                     rate.sleep()
             
             # Start diagnostic movement
@@ -608,9 +644,11 @@ class UnitreeTools:
                 return "Error: Duration must be between 1 and 60 seconds"
 
             # Create publisher if it doesn't exist
-            if not hasattr(node, 'go2_cmd_vel_pub'):
-                node.go2_cmd_vel_pub = node.create_publisher(Twist, '/go2/cmd_vel', 10)
-                node.get_logger().info("Created Go2 cmd_vel publisher")
+            pub_attr = f'go2_cmd_vel_pub_{self.namespace}'
+            if not hasattr(node, pub_attr):
+                setattr(node, pub_attr, node.create_publisher(Twist, f'{self.namespace}/cmd_vel', 10))
+                node.get_logger().info(f"Created Go2 cmd_vel publisher for {self.namespace}")
+            cmd_vel_pub = getattr(node, pub_attr)
 
             linear_speed = radius * angular_speed
 
@@ -623,13 +661,13 @@ class UnitreeTools:
                 cmd.angular.z = angular_speed
 
                 while node.running and (time.time() - start_time < duration):
-                    node.go2_cmd_vel_pub.publish(cmd)
+                    cmd_vel_pub.publish(cmd)
                     rate.sleep()
 
                 # Stop after motion
                 stop_cmd = Twist()
                 for _ in range(5):
-                    node.go2_cmd_vel_pub.publish(stop_cmd)
+                    cmd_vel_pub.publish(stop_cmd)
                     time.sleep(0.05)
 
                 node.get_logger().info(f"Go2 circular motion complete: radius={radius:.2f}m, duration={duration:.1f}s")
@@ -656,12 +694,15 @@ class UnitreeTools:
             node.get_logger().info("Testing pure forward movement (no correction)")
             
             # Record starting state
-            start_x = node.current_go2_pose.pose.pose.position.x
-            start_y = node.current_go2_pose.pose.pose.position.y
-            start_yaw = node.get_go2_yaw()
+            current_pose = getattr(node, f'current_go2_pose_{self.namespace}')
+            start_x = current_pose.pose.pose.position.x
+            start_y = current_pose.pose.pose.position.y
+            start_yaw = getattr(node, f'get_go2_yaw_{self.namespace}')()
             
-            if not hasattr(node, 'go2_cmd_vel_pub'):
-                node.go2_cmd_vel_pub = node.create_publisher(Twist, '/cmd_vel', 10)
+            pub_attr = f'go2_cmd_vel_pub_{self.namespace}'
+            if not hasattr(node, pub_attr):
+                setattr(node, pub_attr, node.create_publisher(Twist, f'{self.namespace}/cmd_vel', 10))
+            cmd_vel_pub = getattr(node, pub_attr)
             
             def calibration_test():
                 # Move forward for 3 seconds with no angular correction
@@ -670,19 +711,20 @@ class UnitreeTools:
                 cmd.angular.z = 0.0  # NO correction
                 
                 for i in range(30):  # 3 seconds at 10 Hz
-                    node.go2_cmd_vel_pub.publish(cmd)
+                    cmd_vel_pub.publish(cmd)
                     time.sleep(0.1)
                 
                 # Stop
                 stop_cmd = Twist()
                 for _ in range(3):
-                    node.go2_cmd_vel_pub.publish(stop_cmd)
+                    cmd_vel_pub.publish(stop_cmd)
                     time.sleep(0.1)
                 
                 # Analyze results
-                final_x = node.current_go2_pose.pose.pose.position.x
-                final_y = node.current_go2_pose.pose.pose.position.y
-                final_yaw = node.get_go2_yaw()
+                final_pose = getattr(node, f'current_go2_pose_{self.namespace}')
+                final_x = final_pose.pose.pose.position.x
+                final_y = final_pose.pose.pose.position.y
+                final_yaw = getattr(node, f'get_go2_yaw_{self.namespace}')()
                 
                 # Calculate drift
                 distance_traveled = math.sqrt((final_x - start_x)**2 + (final_y - start_y)**2)

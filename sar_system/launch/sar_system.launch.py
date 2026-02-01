@@ -62,7 +62,7 @@ def generate_launch_description():
     )
     declare_go2_world_init_z = DeclareLaunchArgument(
         "go2_world_init_z", 
-        default_value="1.0"
+        default_value="0.4"
     )
     declare_go2_world_init_heading = DeclareLaunchArgument(
         "go2_world_init_heading", 

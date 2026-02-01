@@ -21,8 +21,9 @@ import cv2
 class DroneTools:   
     """Collection of tools for drone control via MAVROS."""
     
-    def __init__(self, node):
+    def __init__(self, node, namespace='/drone'):
         self.node = node
+        self.namespace = namespace.rstrip('/')
         
     def create_tools(self):
         """Create and return all robot tools."""
@@ -59,31 +60,36 @@ class DroneTools:
             
             # 2. Create service clients with better error handling
             try:
-                if not hasattr(node, 'arming_client'):
-                    node.arming_client = node.create_client(CommandBool, '/drone/mavros/cmd/arming')
-                    node.get_logger().info("Created arming service client")
+                if not hasattr(node, f'arming_client_{self.namespace}'):
+                    setattr(node, f'arming_client_{self.namespace}', node.create_client(CommandBool, f'{self.namespace}/mavros/cmd/arming'))
+                    node.get_logger().info(f"Created arming service client for {self.namespace}")
                     
-                if not hasattr(node, 'mode_client'):
-                    node.mode_client = node.create_client(SetMode, '/drone/mavros/set_mode')
-                    node.get_logger().info("Created mode service client")
+                if not hasattr(node, f'mode_client_{self.namespace}'):
+                    setattr(node, f'mode_client_{self.namespace}', node.create_client(SetMode, f'{self.namespace}/mavros/set_mode'))
+                    node.get_logger().info(f"Created mode service client for {self.namespace}")
             except Exception as e:
                 return f"Error creating service clients: {str(e)}"
             
             # 3. Wait for services to be available
             timeout = 5.0
-            if not node.arming_client.wait_for_service(timeout_sec=timeout):
+            arming_client = getattr(node, f'arming_client_{self.namespace}')
+            mode_client = getattr(node, f'mode_client_{self.namespace}')
+            
+            if not arming_client.wait_for_service(timeout_sec=timeout):
                 return "Error: Arming service not available"
-            if not node.mode_client.wait_for_service(timeout_sec=timeout):
+            if not mode_client.wait_for_service(timeout_sec=timeout):
                 return "Error: Mode service not available"
             
             # 4. Create setpoint publisher
-            if not hasattr(node, 'setpoint_pub'):
-                node.setpoint_pub = node.create_publisher(
+            if not hasattr(node, f'setpoint_pub_{self.namespace}'):
+                setattr(node, f'setpoint_pub_{self.namespace}', node.create_publisher(
                     PoseStamped,
-                    '/drone/mavros/setpoint_position/local',
+                    f'{self.namespace}/mavros/setpoint_position/local',
                     10
-                )
-                node.get_logger().info("Created setpoint publisher")
+                ))
+                node.get_logger().info(f"Created setpoint publisher for {self.namespace}")
+            
+            setpoint_pub = getattr(node, f'setpoint_pub_{self.namespace}')
             
             # 5. Create and send initial setpoints
             setpoint = PoseStamped()
@@ -96,7 +102,7 @@ class DroneTools:
             node.get_logger().info("Sending initial setpoints...")
             for i in range(10):
                 setpoint.header.stamp = node.get_clock().now().to_msg()
-                node.setpoint_pub.publish(setpoint)
+                setpoint_pub.publish(setpoint)
                 time.sleep(0.1)
             
             # 6. Arm the drone with proper waiting
@@ -104,7 +110,7 @@ class DroneTools:
             try:
                 arm_request = CommandBool.Request()
                 arm_request.value = True
-                future = node.arming_client.call_async(arm_request)
+                future = arming_client.call_async(arm_request)
                 
                 # Wait for arming response
                 start_time = time.time()
@@ -127,7 +133,7 @@ class DroneTools:
             try:
                 mode_request = SetMode.Request()
                 mode_request.custom_mode = "OFFBOARD"
-                future = node.mode_client.call_async(mode_request)
+                future = mode_client.call_async(mode_request)
                 
                 # Wait for mode response
                 start_time = time.time()
@@ -146,23 +152,28 @@ class DroneTools:
                 return f"Error setting mode: {str(e)}"
             
             # 8. Store setpoint and enable publishing
-            node.target_setpoint = setpoint
-            node.publish_setpoints = True
+            setattr(node, f'target_setpoint_{self.namespace}', setpoint)
+            setattr(node, f'publish_setpoints_{self.namespace}', True)
             
             # 9. Start setpoint publisher thread (improved)
-            if not hasattr(node, 'setpoint_thread') or not node.setpoint_thread.is_alive():
+            if not hasattr(node, f'setpoint_thread_{self.namespace}') or not getattr(node, f'setpoint_thread_{self.namespace}').is_alive():
                 def setpoint_publisher():
                     rate = node.create_rate(10)
                     while node.running:
-                        if getattr(node, 'publish_setpoints', False) and hasattr(node, 'target_setpoint'):
-                            node.target_setpoint.header.stamp = node.get_clock().now().to_msg()
-                            node.setpoint_pub.publish(node.target_setpoint)
+                        publish_enabled = getattr(node, f'publish_setpoints_{self.namespace}', False)
+                        target = getattr(node, f'target_setpoint_{self.namespace}', None)
+                        pub = getattr(node, f'setpoint_pub_{self.namespace}', None)
+                        
+                        if publish_enabled and target and pub:
+                            target.header.stamp = node.get_clock().now().to_msg()
+                            pub.publish(target)
                         rate.sleep()
                 
-                node.setpoint_thread = threading.Thread(target=setpoint_publisher)
-                node.setpoint_thread.daemon = True
-                node.setpoint_thread.start()
-                node.get_logger().info("Started setpoint publisher thread")
+                thread = threading.Thread(target=setpoint_publisher)
+                thread.daemon = True
+                thread.start()
+                setattr(node, f'setpoint_thread_{self.namespace}', thread)
+                node.get_logger().info(f"Started setpoint publisher thread for {self.namespace}")
             
             return f"✅ Takeoff successful! Target altitude: {altitude}m\n• Armed: ✓\n• Mode: OFFBOARD\n• Publishing setpoints: ✓"
             
@@ -210,8 +221,8 @@ class DroneTools:
                 return f"Drone is already on ground (altitude: {start_altitude:.2f}m)."
             
             # 3. DISABLE setpoint publishing to allow natural descent/landing
-            if hasattr(node, 'publish_setpoints'):
-                node.publish_setpoints = False
+            if hasattr(node, f'publish_setpoints_{self.namespace}'):
+                setattr(node, f'publish_setpoints_{self.namespace}', False)
                 node.get_logger().info("✅ Disabled position control - drone will now descend to ground")
             else:
                 node.get_logger().warn("No active position control found")
@@ -379,20 +390,20 @@ class DroneTools:
             
             # 2. Create publishers (one-time creation)
             try:
-                if not hasattr(node, 'gimbal_pitch_pub'):
-                    node.gimbal_pitch_pub = node.create_publisher(
-                        Float64, '/drone/gimbal/cmd_pitch', 10)
-                    node.get_logger().info("Created gimbal pitch publisher")
+                pitch_attr = f'gimbal_pitch_pub_{self.namespace}'
+                if not hasattr(node, pitch_attr):
+                    setattr(node, pitch_attr, node.create_publisher(
+                        Float64, f'{self.namespace}/gimbal/cmd_pitch', 10))
                     
-                if not hasattr(node, 'gimbal_roll_pub'):
-                    node.gimbal_roll_pub = node.create_publisher(
-                        Float64, '/drone/gimbal/cmd_roll', 10)
-                    node.get_logger().info("Created gimbal roll publisher")
+                roll_attr = f'gimbal_roll_pub_{self.namespace}'
+                if not hasattr(node, roll_attr):
+                    setattr(node, roll_attr, node.create_publisher(
+                        Float64, f'{self.namespace}/gimbal/cmd_roll', 10))
                     
-                if not hasattr(node, 'gimbal_yaw_pub'):
-                    node.gimbal_yaw_pub = node.create_publisher(
-                        Float64, '/drone/gimbal/cmd_yaw', 10)
-                    node.get_logger().info("Created gimbal yaw publisher")
+                yaw_attr = f'gimbal_yaw_pub_{self.namespace}'
+                if not hasattr(node, yaw_attr):
+                    setattr(node, yaw_attr, node.create_publisher(
+                        Float64, f'{self.namespace}/gimbal/cmd_yaw', 10))
             except Exception as e:
                 return f"Error creating gimbal publishers: {str(e)}"
             
@@ -406,17 +417,17 @@ class DroneTools:
                 # Pitch command
                 pitch_msg = Float64()
                 pitch_msg.data = pitch_rad
-                node.gimbal_pitch_pub.publish(pitch_msg)
+                getattr(node, f'gimbal_pitch_pub_{self.namespace}').publish(pitch_msg)
                 
                 # Roll command  
                 roll_msg = Float64()
                 roll_msg.data = roll_rad
-                node.gimbal_roll_pub.publish(roll_msg)
+                getattr(node, f'gimbal_roll_pub_{self.namespace}').publish(roll_msg)
                 
                 # Yaw command
                 yaw_msg = Float64()
                 yaw_msg.data = yaw_rad
-                node.gimbal_yaw_pub.publish(yaw_msg)
+                getattr(node, f'gimbal_yaw_pub_{self.namespace}').publish(yaw_msg)
                 
                 node.get_logger().info(f"Gimbal commands sent: P={pitch_rad:.3f}rad, R={roll_rad:.3f}rad, Y={yaw_rad:.3f}rad")
                 
